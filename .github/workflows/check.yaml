@@ -43,6 +43,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-index-
 
+      # Install tools
+      - name: Install tools
+        run: |
+          rustup component add clippy
+          rustup component add rustfmt
+
       # Install dependencies & build:
       - name: Install dependencies
         run: cargo fetch
