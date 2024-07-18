@@ -2,13 +2,13 @@
 
 use std::io;
 
-use clap::Args;
 use crate::cli::init::setup::setup;
+use clap::Args;
 
 #[derive(Args)]
 pub struct InitArgs {
-  #[clap(short = 'd', long, default_value = "")]
-  directory: String,
+    #[clap(short = 'd', long, default_value = "")]
+    directory: String,
 }
 
 pub fn init(args: InitArgs) -> io::Result<()> {

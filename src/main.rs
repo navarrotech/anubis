@@ -1,7 +1,7 @@
 // Copyright © 2024 Navarrotech
 
+use crate::cli::{init, InitArgs};
 use clap::Parser;
-use crate::cli::{InitArgs, init};
 
 #[derive(Parser)]
 #[clap(version = "1.0", author = "Alex Navarro")]

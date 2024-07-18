@@ -4,11 +4,7 @@ use std::env;
 use std::fs;
 use std::io;
 
-const DIRS: &[&str] = &[
-    "path/to/dir1",
-    "path/to/dir2",
-    "path/to/dir3",
-];
+const DIRS: &[&str] = &["frontend/src", "backend/src", ".github/workflows"];
 
 pub fn setup(base_path: &String) -> io::Result<()> {
     let current_dir = env::current_dir()?;
@@ -46,7 +42,12 @@ mod setup_tests {
     #[test]
     fn test_setup_creates_directories_in_specified_dir() {
         let temp_dir = tempdir().unwrap();
-        let base_path = temp_dir.path().join("test_subdir").to_str().unwrap().to_string();
+        let base_path = temp_dir
+            .path()
+            .join("test_subdir")
+            .to_str()
+            .unwrap()
+            .to_string();
 
         setup(&base_path).unwrap();
 

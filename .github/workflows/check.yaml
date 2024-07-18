@@ -53,15 +53,15 @@ jobs:
       - name: Install dependencies
         run: cargo fetch
 
-      - name: Ensure code formatting
-        run: cargo fmt -- --check
+      # Testing:
+      - name: Run unit tests
+        run: cargo test
 
       - name: Ensure clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-      # Testing:
-      - name: Run unit tests
-        run: cargo test
+      - name: Ensure code formatting
+        run: cargo fmt -- --check
 
       # Install dependencies & make assets:
       - name: Build & Release
