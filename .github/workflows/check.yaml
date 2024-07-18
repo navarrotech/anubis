@@ -26,8 +26,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Re-use caching for faster builds
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+
+      # Install dependencies & build:
+      - name: Install dependencies
+        run: cargo fetch
+
       - name: Ensure code formatting
-        run: cargo fmt --check
+        run: cargo fmt -- --check
+
+      - name: Ensure clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       # Testing:
       - name: Run unit tests
@@ -36,3 +60,20 @@ jobs:
       # Install dependencies & make assets:
       - name: Build & Release
         run: cargo build --release
+
+      # Save cache
+      - name: Save cargo registry cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Save cargo index cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
