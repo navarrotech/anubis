@@ -1,7 +1,8 @@
 # The Anubis Framework
 A project by [NavarroTech](https://www.navarrotech.net/)
 
-THIS PROJECT IS IN DEVELOPMENT/ALPHA, AND IS CURRENTLY UNSTABLE. NO RELEASES HAVE BEEN PUBLISHED YET.
+**THIS PROJECT IS IN DEVELOPMENT/ALPHA, AND IS CURRENTLY UNSTABLE.**
+**NO RELEASES HAVE BEEN PUBLISHED YET.**
 
 Anubis is a cutting-edge framework designed to revolutionize the way you build full-scale SaaS web applications. Drawing inspiration from the efficiency and flexibility of [Bullet Train](https://bullettrain.co/), Anubis leverages the power of Rust for the backend and Preact for the frontend to deliver a highly automated and customizable development experience. With Anubis, you can generate 90% of your application's codebase in just 15 minutes using a powerful CLI and a single schema file.
 
