@@ -1,0 +1,46 @@
+
+<!-- Phase 1 -->
+Base CLI
+Base Schema file
+Auto generated production
+Generated docker
+Generated CI/CD
+Anubis unit tests
+Script for generation
+
+<!-- Phase 2 -->
+Auto generated backend
+Generated database buildout
+Generated API routes
+Automated API utilities for frontend
+Automated i18n
+Auto generated frontend
+Auto generated unit testing
+
+<!-- Phase 3 -->
+Ability to override pieces
+Custom schema middleware
+Code hooks
+Generated framework unit tests
+Auto generated unit testing
+Generated security
+Generated Protobuf
+Automated navigation
+Automated pages
+Automated components
+Automated theming
+Automated types
+
+<!-- Phase 4 -->
+Generated auth + permissions
+Generated user teams + permissions
+Auto generated API & documentation
+Generated webhooks
+
+<!-- Future goals -->
+Generated billing utilities (stripe integration)
+Auto generated admin dashboard
+
+<!-- Core -->
+
+<!-- Tech debt / Weaknesses -->

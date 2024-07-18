@@ -1,0 +1,11 @@
+[package]
+name = "anubis"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+cargo-watch = "^8.5.2"
+cargo-make = "^0.37.13"
+
+[dependencies]
+clap = { version = "4.5.9", features = ["derive"] }

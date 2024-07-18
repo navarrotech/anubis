@@ -1,0 +1,38 @@
+name: Check formatting
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# The whole purpose of this is to ensure that:
+# 1. The code is linted
+# 2. The unit tests all pass (not to generate a report)
+# 3. The build is successful
+# On all pull requests and main branch pushes
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    container:
+      image: rust:latest
+
+    steps:
+
+      # Setup:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure eslint
+        run: cargo fmt --check
+
+      # Testing:
+      - name: Run unit tests
+        run: cargo test
+
+      # Install dependencies & make assets:
+      - name: Build & Release
+        run: cargo build --release
