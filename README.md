@@ -1,5 +1,7 @@
 # The Anubis Framework
-A product by [NavarroTech](https://www.navarrotech.net/)
+A project by [NavarroTech](https://www.navarrotech.net/)
+
+THIS PROJECT IS IN DEVELOPMENT/ALPHA, AND IS CURRENTLY UNSTABLE. NO RELEASES HAVE BEEN PUBLISHED YET.
 
 Anubis is a cutting-edge framework designed to revolutionize the way you build full-scale SaaS web applications. Drawing inspiration from the efficiency and flexibility of [Bullet Train](https://bullettrain.co/), Anubis leverages the power of Rust for the backend and Preact for the frontend to deliver a highly automated and customizable development experience. With Anubis, you can generate 90% of your application's codebase in just 15 minutes using a powerful CLI and a single schema file.
 
@@ -43,6 +45,23 @@ The goal is that I should be able to build 80% -> 90% of a full scale SaaS web a
 Anubis uses a core anubis.schema.rs file that lives in the root of your project, that will determine everything. You can either edit the schema directly or use the CLI for step-by-step building.
 
 As you build the schema, Anubis will do all of the heavy lifting for you.
+
+## Anubis tech stack
+This is the technology that Anubis will setup for you and auto-generate.
+In it's current state, Anubis cannot offer other options. 
+In the future, we'd love to include support for different CSS, data shapes, websocket frameworks, and database choices.
+If you want these swappable sooner, hit that pull request button ;)
+
+Backend language - [Rust](https://www.rust-lang.org/)
+Backend API framework - [Rocket](https://rocket.rs/)
+Database - [PostgreSQL](https://www.postgresql.org/)
+Websockets - [Socket.io](https://socket.io/) & [Rust Socket.io](https://github.com/1c3t3a/rust-socketio)
+Data shapes - [Protobuf]() and optional JSON API
+Internationalization - [i18next](https://www.i18next.com/)
+Frontend - [Preact.js](https://preactjs.com/), compiled with [Vite](https://vitejs.dev/)
+Frontend unit tests - [Vitest](https://vitest.dev/)
+Frontend state - [Spiccato](https://www.npmjs.com/package/spiccato) by qdizon
+Frontend css - [Tailwinds CSS](https://tailwindcss.com/)
 
 ## What about custom features?
 Let's say I want to put a Leaflet/Mapbox map into the software, or maybe I'm building a dating app and have very untraditional UI for swiping left/right. 

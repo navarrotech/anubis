@@ -6,7 +6,7 @@ use std::io;
 
 const DIRS: &[&str] = &["frontend/src", "backend/src", ".github/workflows"];
 
-pub fn setup(base_path: &String) -> io::Result<()> {
+pub fn setup_directories(base_path: &String) -> io::Result<()> {
     let current_dir = env::current_dir()?;
     let current_dir = current_dir.join(base_path);
 
@@ -31,7 +31,7 @@ mod setup_tests {
         let temp_dir = tempdir().unwrap();
         let base_path = temp_dir.path().to_str().unwrap().to_string();
 
-        setup(&base_path).unwrap();
+        setup_directories(&base_path).unwrap();
 
         for &dir in DIRS {
             let path = temp_dir.path().join(dir);
@@ -49,7 +49,7 @@ mod setup_tests {
             .unwrap()
             .to_string();
 
-        setup(&base_path).unwrap();
+        setup_directories(&base_path).unwrap();
 
         for &dir in DIRS {
             let path = temp_dir.path().join("test_subdir").join(dir);

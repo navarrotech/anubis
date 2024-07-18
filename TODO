@@ -39,6 +39,7 @@ Generated webhooks
 
 <!-- Future goals -->
 Generated billing utilities (stripe integration)
+Allow the user to choose different databases
 Auto generated admin dashboard
 
 <!-- Core -->
