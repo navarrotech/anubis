@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ensure eslint
+      - name: Ensure code formatting
         run: cargo fmt --check
 
       # Testing:
