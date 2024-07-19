@@ -18,6 +18,8 @@ The goal is that I should be able to build 80% -> 90% of a full scale SaaS web a
 **For example**, if I was making a bank app and wanted to add transactions, I could use the CLI to create a database table "transactions", and in that CLI command I could define each column and constraints. That would then create the object data model in the schema, and auto generated the rust CRUD api routes with validators and internationalized error messages, auto setup the ORM connections, automatically create unit tests for those routes, then create admin dashboard tools to view/manage that data, automatically create protobuf interfaces, automatically create the frontend forms, views, and add a "transactions" page to a sidebar. Automatically create unit tests for the frontend views, automatically pagination lists of transactions, automatically create redux reducers for the transactions, etc. **I should be able to do all of this from the CLI, without opening a code editor.**
 
 ## Anubis Terminology
+![Anubis terminology](documentation/images/terminology.png "Anubis terminology, synths, synthetic files, automatrons, automatron files, relics, relic files, artifacts")
+
 **Synths / Synthetic Files**
 
   These are files that are partially auto-generated but allow for a user to modify it and persist the changes amongst auto-generated changes.
@@ -42,8 +44,11 @@ The goal is that I should be able to build 80% -> 90% of a full scale SaaS web a
   These are the most traditional to the actual term "artifacts" that are outputs to the whole system.
   For example, output production docker images & output production HTML/CSS are artifacts.
 
+## Available commands
+![Anubis commands](documentation/images/commands.png "Anubis commands")
+
 ## How does it work?
-Anubis uses a core anubis.schema.rs file that lives in the root of your project, that will determine everything. You can either edit the schema directly or use the CLI for step-by-step building.
+Anubis uses a core anubis.yaml file that lives in the root of your project, that will determine everything. You can either edit the schema directly or use the CLI for step-by-step building.
 
 As you build the schema, Anubis will do all of the heavy lifting for you.
 

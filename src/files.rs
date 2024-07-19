@@ -1,4 +1,4 @@
-// Copyright © 2024 High Point Aero Technologies.
+// Copyright © 2024 Navarrotech
 
 // This list is used when Anubis needs to modify a global
 // For example, when changing a copyright header globally

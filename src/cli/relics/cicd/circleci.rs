@@ -20,6 +20,12 @@ pub fn setup_circleci(schema: &AnubisSchema) {
 }
 
 pub fn create_circleci(schema: &AnubisSchema) -> String {
+    let copyright = if schema.copyright_header_formatted.is_empty() {
+        schema.copyright_header_formatted.clone()
+    } else {
+        format!("# {}", schema.copyright_header_formatted)
+    };
+
     format!("{copyright_header}version: 2.1
 
 #  This is a generated relic by Anubis. It sets up a CircleCI Actions workflow that will:
@@ -199,7 +205,7 @@ workflows:
           requires:
             - build-frontend
 
-  ", project_name = schema.project_name, copyright_header = schema.copyright_header)
+  ", project_name = schema.project_name, copyright_header = copyright)
 }
 
 #[cfg(test)]
@@ -208,7 +214,6 @@ mod check_circleci {
     use crate::schema::AnubisSchema;
     use serde_yaml;
     use serde_yaml::Error;
-    use std::path::PathBuf;
     use tempfile::tempdir;
 
     fn is_valid_yaml(yaml_str: &str) -> Result<(), Error> {
@@ -217,11 +222,9 @@ mod check_circleci {
 
     #[test]
     fn ensure_circleci_yaml_is_valid() {
-        let test_schema = AnubisSchema {
-            project_name: "test".to_string(),
-            copyright_header: String::from(""),
-            install_directory: PathBuf::from("."),
-        };
+        let mut test_schema = AnubisSchema::default();
+        test_schema.project_name = "test".to_string();
+
         let content = create_circleci(&test_schema);
 
         assert!(is_valid_yaml(content.as_str()).is_ok());
@@ -229,11 +232,9 @@ mod check_circleci {
 
     #[test]
     fn ensure_circleci_yaml_is_valid_with_project_name_spaces() {
-        let test_schema = AnubisSchema {
-            project_name: "name with spaces".to_string(),
-            copyright_header: String::from(""),
-            install_directory: PathBuf::from("."),
-        };
+        let mut test_schema = AnubisSchema::default();
+        test_schema.project_name = "name with spaces".to_string();
+
         let content = create_circleci(&test_schema);
 
         assert!(is_valid_yaml(content.as_str()).is_ok());
@@ -241,24 +242,24 @@ mod check_circleci {
 
     #[test]
     fn ensure_circleci_yaml_is_valid_with_copyright_header() {
-        let test_schema = AnubisSchema {
-            project_name: "test".to_string(),
-            copyright_header: String::from("// Copyright © 2024 Navarrotech"),
-            install_directory: PathBuf::from("."),
-        };
+      let mut test_schema = AnubisSchema::default();
+      test_schema.copyright_header = String::from("// Copyright © {YYYY} Navarrotech");
+      test_schema.copyright_header_formatted = String::from("// Copyright © 2024 Navarrotech");
+
         let content = create_circleci(&test_schema);
 
         assert!(is_valid_yaml(content.as_str()).is_ok());
     }
 
     #[test]
-    fn ensure_github_actions_writes_the_file() {
+    fn ensure_circleci_writes_the_file() {
         let temp_directory = tempdir().unwrap().into_path();
-        let test_schema = AnubisSchema {
-            project_name: "Anubis Test".to_string(),
-            copyright_header: String::from("// Copyright © 2024 Navarrotech"),
-            install_directory: temp_directory.clone(),
-        };
+
+        let mut test_schema = AnubisSchema::default();
+        test_schema.project_name = "Anubis Test".to_string();
+        test_schema.copyright_header = String::from("// Copyright © {YYYY} Navarrotech");
+        test_schema.copyright_header_formatted = String::from("// Copyright © 2024 Navarrotech");
+        test_schema.install_directory = temp_directory.clone();
 
         setup_circleci(&test_schema);
 

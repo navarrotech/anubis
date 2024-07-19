@@ -66,6 +66,7 @@ pub fn setup_cicd(schema: &AnubisSchema) {
             setup_github_actions(schema);
         }
         CICDProvider::GitLabCI => {
+            // TODO: Implement GitLab CI setup
             println!("Setting up GitLab CI...");
         }
         CICDProvider::CircleCI => {

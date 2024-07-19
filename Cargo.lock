@@ -105,6 +105,7 @@ version = "0.1.0"
 dependencies = [
  "cargo-make",
  "cargo-watch",
+ "chrono",
  "clap 4.5.9",
  "dialoguer",
  "serde_yaml",

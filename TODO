@@ -7,6 +7,7 @@ Generated docker
 Generated CI/CD
 Anubis unit tests
 Script for generation
+Implement GitLab CI setup
 
 <!-- Phase 2 -->
 Auto generated backend
