@@ -83,3 +83,12 @@ jobs:
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-index-
+
+      # Save target artifact if it's a release
+      - name: Save target artifact
+        uses: actions/upload-artifact@v4
+        if: contains(github.ref, 'release')
+        with: 
+          name: target
+          path: target/release/
+          
