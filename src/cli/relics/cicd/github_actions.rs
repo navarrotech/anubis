@@ -226,13 +226,13 @@ jobs:
 #[cfg(test)]
 mod check_github_actions {
     use super::*;
+    use crate::schema::AnubisSchema;
     use serde_yaml;
     use serde_yaml::Error;
     use std::path::PathBuf;
-    use crate::schema::AnubisSchema;
 
     fn is_valid_yaml(yaml_str: &str) -> Result<(), Error> {
-      serde_yaml::from_str::<serde_yaml::Value>(yaml_str).map(|_| ())
+        serde_yaml::from_str::<serde_yaml::Value>(yaml_str).map(|_| ())
     }
 
     #[test]

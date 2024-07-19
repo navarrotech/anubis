@@ -3,8 +3,8 @@
 use crate::schema::AnubisSchema;
 
 pub fn setup_circleci(schema: &AnubisSchema) -> String {
-  println!("Setting up CircleCI...");
-  format!("{copyright_header}version: 2.1
+    println!("Setting up CircleCI...");
+    format!("{copyright_header}version: 2.1
 
 #  This is a generated relic by Anubis. It sets up a CircleCI Actions workflow that will:
 #  - Cache the Cargo registry and index
@@ -189,13 +189,13 @@ workflows:
 #[cfg(test)]
 mod check_circleci {
     use super::*;
+    use crate::schema::AnubisSchema;
     use serde_yaml;
     use serde_yaml::Error;
     use std::path::PathBuf;
-    use crate::schema::AnubisSchema;
 
     fn is_valid_yaml(yaml_str: &str) -> Result<(), Error> {
-      serde_yaml::from_str::<serde_yaml::Value>(yaml_str).map(|_| ())
+        serde_yaml::from_str::<serde_yaml::Value>(yaml_str).map(|_| ())
     }
 
     #[test]

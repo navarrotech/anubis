@@ -44,9 +44,7 @@ mod setup_tests {
     #[test]
     fn test_setup_creates_directories_in_specified_dir() {
         let temp_dir = tempdir().unwrap();
-        let base_path = temp_dir
-            .path()
-            .join("test_subdir");
+        let base_path = temp_dir.path().join("test_subdir");
 
         setup_directories(&base_path).unwrap();
 

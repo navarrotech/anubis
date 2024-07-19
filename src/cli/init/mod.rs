@@ -1,8 +1,8 @@
 // Copyright © 2024 Navarrotech
 
 // Lib
-use std::io;
 use clap::Args;
+use std::io;
 
 // Setup sub-functions
 use crate::cli::init::setup::setup_directories;

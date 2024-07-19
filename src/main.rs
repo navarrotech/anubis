@@ -2,8 +2,8 @@
 
 use crate::cli::init::{init, InitArgs};
 use crate::schema::AnubisSchema;
-use std::env;
 use clap::Parser;
+use std::env;
 
 #[derive(Parser)]
 #[clap(version = "1.0", author = "Alex Navarro")]
