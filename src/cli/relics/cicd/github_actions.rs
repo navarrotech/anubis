@@ -279,9 +279,9 @@ mod check_github_actions {
 
     #[test]
     fn ensure_github_actions_yaml_is_valid_with_copyright_header() {
-      let mut test_schema = AnubisSchema::default();
-      test_schema.copyright_header = String::from("// Copyright © {YYYY} Navarrotech");
-      test_schema.copyright_header_formatted = String::from("// Copyright © 2024 Navarrotech");
+        let mut test_schema = AnubisSchema::default();
+        test_schema.copyright_header = String::from("// Copyright © {YYYY} Navarrotech");
+        test_schema.copyright_header_formatted = String::from("// Copyright © 2024 Navarrotech");
 
         let content = create_github_actions(&test_schema);
 

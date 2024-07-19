@@ -1,9 +1,9 @@
 // Copyright © 2024 Navarrotech
 
 // Lib
+use chrono::Datelike;
 use clap::Parser;
 use std::env;
-use chrono::Datelike;
 
 // Dialoguer
 use dialoguer::theme::ColorfulTheme;
@@ -34,7 +34,7 @@ fn main() -> std::io::Result<()> {
                     .default(String::from(""))
                     .interact_text()
                     .unwrap(),
-                false => args.name
+                false => args.name,
             };
 
             let copyright_header: String = match args.copy.is_empty() {
@@ -43,17 +43,18 @@ fn main() -> std::io::Result<()> {
                     .default(String::from("Copyright © {YYYY} Company Name"))
                     .interact_text()
                     .unwrap(),
-                false => args.copy
+                false => args.copy,
             };
 
             let copyright_header_formatted = copyright_header.replace("{YYYY}", &year.to_string());
 
-            let mut schema = AnubisSchema::default();
-
-            schema.project_name = project_name;
-            schema.copyright_header = copyright_header;
-            schema.copyright_header_formatted = copyright_header_formatted;
-            schema.install_directory = env::current_dir()?.join(&args.directory);
+            let schema = AnubisSchema {
+                project_name,
+                copyright_header,
+                copyright_header_formatted,
+                install_directory: env::current_dir()?.join(&args.directory),
+                ..Default::default()
+            };
 
             init(&schema)?;
         }

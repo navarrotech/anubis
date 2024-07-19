@@ -58,16 +58,16 @@ In it's current state, Anubis cannot offer other options.
 In the future, we'd love to include support for different CSS, data shapes, websocket frameworks, and database choices.
 If you want these swappable sooner, hit that pull request button ;)
 
-Backend language - [Rust](https://www.rust-lang.org/)
-Backend API framework - [Rocket](https://rocket.rs/)
-Database - [PostgreSQL](https://www.postgresql.org/)
-Websockets - [Socket.io](https://socket.io/) & [Rust Socket.io](https://github.com/1c3t3a/rust-socketio)
-Data shapes - [Protobuf]() and optional JSON API
-Internationalization - [i18next](https://www.i18next.com/)
-Frontend - [Preact.js](https://preactjs.com/), compiled with [Vite](https://vitejs.dev/)
-Frontend unit tests - [Vitest](https://vitest.dev/)
-Frontend state - [Spiccato](https://www.npmjs.com/package/spiccato) by qdizon
-Frontend css - [Tailwinds CSS](https://tailwindcss.com/)
+* Backend language - [Rust](https://www.rust-lang.org/)
+* Backend API framework - [Rocket](https://rocket.rs/)
+* Database - [PostgreSQL](https://www.postgresql.org/)
+* Websockets - [Socket.io](https://socket.io/) & [Rust Socket.io](https://github.com/1c3t3a/rust-socketio)
+* Data shapes - [Protobuf]() and optional JSON API
+* Internationalization - [i18next](https://www.i18next.com/)
+* Frontend - [Preact.js](https://preactjs.com/), compiled with [Vite](https://vitejs.dev/)
+* Frontend unit tests - [Vitest](https://vitest.dev/)
+* Frontend state - [Spiccato](https://www.npmjs.com/package/spiccato) by qdizon
+* Frontend css - [Tailwinds CSS](https://tailwindcss.com/)
 
 ## What about custom features?
 Let's say I want to put a Leaflet/Mapbox map into the software, or maybe I'm building a dating app and have very untraditional UI for swiping left/right. 
