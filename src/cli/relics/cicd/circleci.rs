@@ -2,8 +2,24 @@
 
 use crate::schema::AnubisSchema;
 
-pub fn setup_circleci(schema: &AnubisSchema) -> String {
+pub fn setup_circleci(schema: &AnubisSchema) {
     println!("Setting up CircleCI...");
+    let content = create_circleci(schema);
+
+    // Create the file path
+    let file = schema
+        .install_directory
+        .clone()
+        .join(".circleci/config.yml");
+
+    // Ensure all parent directories exist
+    std::fs::create_dir_all(file.parent().unwrap()).expect("Unable to create parent directories");
+
+    // Write the file
+    std::fs::write(file, content).expect("Unable to write github actions file");
+}
+
+pub fn create_circleci(schema: &AnubisSchema) -> String {
     format!("{copyright_header}version: 2.1
 
 #  This is a generated relic by Anubis. It sets up a CircleCI Actions workflow that will:
@@ -193,6 +209,7 @@ mod check_circleci {
     use serde_yaml;
     use serde_yaml::Error;
     use std::path::PathBuf;
+    use tempfile::tempdir;
 
     fn is_valid_yaml(yaml_str: &str) -> Result<(), Error> {
         serde_yaml::from_str::<serde_yaml::Value>(yaml_str).map(|_| ())
@@ -205,7 +222,7 @@ mod check_circleci {
             copyright_header: String::from(""),
             install_directory: PathBuf::from("."),
         };
-        let content = setup_circleci(&test_schema);
+        let content = create_circleci(&test_schema);
 
         assert!(is_valid_yaml(content.as_str()).is_ok());
     }
@@ -217,7 +234,7 @@ mod check_circleci {
             copyright_header: String::from(""),
             install_directory: PathBuf::from("."),
         };
-        let content = setup_circleci(&test_schema);
+        let content = create_circleci(&test_schema);
 
         assert!(is_valid_yaml(content.as_str()).is_ok());
     }
@@ -229,8 +246,26 @@ mod check_circleci {
             copyright_header: String::from("// Copyright © 2024 Navarrotech"),
             install_directory: PathBuf::from("."),
         };
-        let content = setup_circleci(&test_schema);
+        let content = create_circleci(&test_schema);
 
+        assert!(is_valid_yaml(content.as_str()).is_ok());
+    }
+
+    #[test]
+    fn ensure_github_actions_writes_the_file() {
+        let temp_directory = tempdir().unwrap().into_path();
+        let test_schema = AnubisSchema {
+            project_name: "Anubis Test".to_string(),
+            copyright_header: String::from("// Copyright © 2024 Navarrotech"),
+            install_directory: temp_directory.clone(),
+        };
+
+        setup_circleci(&test_schema);
+
+        let file_path = temp_directory.join(".circleci/config.yml");
+        assert!(file_path.exists());
+
+        let content = std::fs::read_to_string(file_path).unwrap();
         assert!(is_valid_yaml(content.as_str()).is_ok());
     }
 }
