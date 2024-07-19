@@ -1,6 +1,8 @@
 // Copyright © 2024 Navarrotech
 
-use crate::cli::{init, InitArgs};
+use crate::cli::init::{init, InitArgs};
+use crate::schema::AnubisSchema;
+use std::env;
 use clap::Parser;
 
 #[derive(Parser)]
@@ -15,11 +17,16 @@ fn main() -> std::io::Result<()> {
 
     match cli {
         CargoCli::Init(args) => {
-            init(args)?;
+            let schema = AnubisSchema {
+                project_name: args.name.clone(),
+                install_directory: env::current_dir()?.join(&args.directory),
+                copyright_header: String::from(""),
+            };
+            init(&schema)?;
         }
     }
 
     Ok(())
 }
-
 mod cli;
+mod schema;

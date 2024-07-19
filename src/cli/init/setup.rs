@@ -1,17 +1,19 @@
 // Copyright © 2024 Navarrotech
 
-use std::env;
 use std::fs;
 use std::io;
+use std::path::Path;
 
-const DIRS: &[&str] = &["frontend/src", "backend/src", ".github/workflows"];
+const DIRS: &[&str] = &[
+    "frontend/src",
+    "backend/src",
+    ".github/workflows",
+    ".anubis",
+];
 
-pub fn setup_directories(base_path: &String) -> io::Result<()> {
-    let current_dir = env::current_dir()?;
-    let current_dir = current_dir.join(base_path);
-
+pub fn setup_directories(base_path: &Path) -> io::Result<()> {
     for &dir in DIRS {
-        let path = current_dir.join(dir);
+        let path = base_path.join(dir);
         if !path.exists() {
             fs::create_dir_all(&path)?;
             println!("Created directory: {}", path.display());
@@ -29,7 +31,7 @@ mod setup_tests {
     #[test]
     fn test_setup_creates_directories_in_current_dir() {
         let temp_dir = tempdir().unwrap();
-        let base_path = temp_dir.path().to_str().unwrap().to_string();
+        let base_path = temp_dir.path();
 
         setup_directories(&base_path).unwrap();
 
@@ -44,10 +46,7 @@ mod setup_tests {
         let temp_dir = tempdir().unwrap();
         let base_path = temp_dir
             .path()
-            .join("test_subdir")
-            .to_str()
-            .unwrap()
-            .to_string();
+            .join("test_subdir");
 
         setup_directories(&base_path).unwrap();
 
