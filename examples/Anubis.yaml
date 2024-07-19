@@ -6,6 +6,12 @@ project:
   copyright_header: 'Copyright © 2024 Navarrotech'
   description: 'Anubis is a simple and powerful tool for managing your projects.'
 
+# Advanced settings that don't exist yet!
+settings:
+  scaling: 'horizontal'
+  serverless_api: false
+
+
 # Models are what is used to automatically generate your database, protobufs, API, 
 # CRUD routes, and frontend, forms, pages, admin dashboard, etc.
 models:

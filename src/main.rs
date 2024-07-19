@@ -40,7 +40,7 @@ fn main() -> std::io::Result<()> {
             let copyright_header: String = match args.copy.is_empty() {
                 true => Input::with_theme(&ColorfulTheme::default())
                     .with_prompt("Copyright header: (Leave blank for none)")
-                    .default(String::from("Copyright © {YYYY} Company Name"))
+                    .with_initial_text(String::from("Copyright © {YYYY} MyCompany"))
                     .interact_text()
                     .unwrap(),
                 false => args.copy,

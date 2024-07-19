@@ -23,49 +23,61 @@ pub fn create_circleci(schema: &AnubisSchema) -> String {
     let copyright = if schema.copyright_header_formatted.is_empty() {
         schema.copyright_header_formatted.clone()
     } else {
-        format!("# {}", schema.copyright_header_formatted)
+        format!("# {}\n\n", schema.copyright_header_formatted)
     };
+
+    let project_name = schema.project_name.replace(' ', "-");
 
     format!("{copyright_header}version: 2.1
 
-#  This is a generated relic by Anubis. It sets up a CircleCI Actions workflow that will:
-#  - Cache the Cargo registry and index
-#  - Ensure unit tests are ran
-#  - Build the project in release mode
-#  - Push the build artifacts to CircleCI
-#  - Optionally create a Docker image and push to Docker Hub
-#  
-#  This file is an Anubis relic, meaning it was only auto-generated from running 'anubis init' and selecting CircleCI Actions.
-#  You may safely modify this file as much as you want, and Anubis will not touch this file again.
-#  
-#  To regenerate this file and restore all defaults, you can run:
-#  `anubis relics create circleci-actions`
-
 executors:
-  rust-executor:
+  rust:
     working_directory: ~/app
     docker:
-      - image: cimg/rust:latest
+      - image: rust:latest
 
-  node-executor:
+  node:
     working_directory: ~/app
     docker:
-      - image: cimg/node:latest
+      - image: node:latest
 
-jobs:
-  build-rust:
-    executor: rust-executor
+  ubuntu:
+    working_directory: ~/app
+    docker:
+      - image: ubuntu:latest
+
+# Define reusable commands for the frontend and backend
+commands:
+  setup_frontend:
     steps:
-      - checkout
-
       # Cache dependencies
       - restore_cache:
           keys:
-            - cargo-registry-{{ checksum \"Cargo.lock\" }}
+            - node-dependencies-{{{{ checksum \"yarn.lock\" }}}}
+  
+      # Install dependencies & make assets
+      - run:
+          name: Install dependencies
+          command: |
+            cd frontend
+            yarn install
+            
+      # Save cache
+      - save_cache:
+          key: node-dependencies-{{{{ checksum \"yarn.lock\" }}}}
+          paths:
+            - frontend/node_modules
+
+  setup_backend:
+    steps:
+      # Cache dependencies
+      - restore_cache:
+          keys:
+            - cargo-registry-{{{{ checksum \"Cargo.lock\" }}}}
 
       - restore_cache:
           keys:
-            - cargo-index-{{ checksum \"Cargo.lock\" }}
+            - cargo-index-{{{{ checksum \"Cargo.lock\" }}}}
 
       # Install dependencies
       - run:
@@ -74,12 +86,52 @@ jobs:
             cd backend
             cargo fetch
 
-      # Optional: Require Rust formatting
+      # Save cache
+      - save_cache:
+          key: cargo-registry-{{{{ checksum \"Cargo.lock\" }}}}
+          paths:
+            - ~/.cargo/registry
+
+      - save_cache:
+          key: cargo-index-{{{{ checksum \"Cargo.lock\" }}}}
+          paths:
+            - ~/.cargo/git
+
+jobs:
+  test-frontend:
+    executor: node
+
+    steps:
+      - checkout
+      - setup_frontend
+      
+      # Run unit tests
       - run:
-          name: Check Rust formatting
+          name: Run unit tests
           command: |
-            cd backend
-            cargo fmt --all -- --check
+            cd frontend
+            yarn test
+
+      # Check typescript
+      - run:
+          name: Check typescript
+          command: |
+            cd frontend
+            yarn tsc
+  
+      # Optional: Require ESLint checks to pass before building
+      - run:
+          name: Ensure eslint
+          command: |
+            cd frontend
+            yarn lint
+
+  test-backend:
+    executor: rust
+
+    steps:
+      - checkout
+      - setup_backend
 
       # Run unit tests
       - run:
@@ -87,6 +139,27 @@ jobs:
           command: |
             cd backend
             cargo test
+
+      # Optional: Require Rust formatting
+      - run:
+          name: Check Rust formatting
+          command: |
+            cd backend
+            cargo fmt --all -- --check
+
+      # Optional: Require Rust clippy checks
+      - run:
+          name: Check Rust formatting
+          command: |
+            cd backend
+            cargo add --dev clippy
+            cargo clippy
+
+  build-backend:
+    executor: rust
+    steps:
+      - checkout
+      - setup_backend
 
       # Build the release candidate
       - run:
@@ -96,116 +169,108 @@ jobs:
             cargo build --release
 
       # Save build artifacts
+      - store_artifacts:
+          path: backend/target/release
+          destination: backend-release
+
       - persist_to_workspace:
           root: .
           paths:
             - backend/target/release
-          when:
-            equal: [ main, << pipeline.git.branch >> ]
-
-      # Save cache
-      - save_cache:
-          key: cargo-registry-{{ checksum \"Cargo.lock\" }}
-          paths:
-            - ~/.cargo/registry
-
-      - save_cache:
-          key: cargo-index-{{ checksum \"Cargo.lock\" }}
-          paths:
-            - ~/.cargo/git
-
-      # Optional, build a Docker image for the backend service and push to Docker Hub
-      - setup_remote_docker:
-          docker_layer_caching: true
-          when:
-            equal: [ main, << pipeline.git.branch >> ]
-
-      - run:
-          name: Build and push Docker image
-          when:
-            equal: [ main, << pipeline.git.branch >> ]
-          command: |
-            cd backend
-
-            # Get the short Git hash
-            GIT_HASH=$(git rev-parse --short HEAD)
-
-            # Log in to Docker Hub
-            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-
-            # Build the Docker image and tag it as latest
-            docker build . -t $DOCKER_HUB_USERNAME/{project_name}-backend-rust:latest  -f ./Dockerfile
-
-            # Push the latest tag
-            docker push $DOCKER_HUB_USERNAME/{project_name}-backend-rust:latest
-
-            # Tag the image with the short Git hash
-            docker tag $DOCKER_HUB_USERNAME/{project_name}-backend-rust:latest $DOCKER_HUB_USERNAME/{project_name}-backend-rust:$GIT_HASH
-
-            # Push the image with the Git hash tag
-            docker push $DOCKER_HUB_USERNAME/{project_name}-backend-rust:$GIT_HASH
 
   build-frontend:
-    executor: node-executor
+    executor: node
     steps:
       - checkout
-  
-      # Cache dependencies
-      - restore_cache:
-          keys:
-            - node-dependencies-{{ checksum \"yarn.lock\" }}
-  
-      # Install dependencies & make assets
-      - run:
-          name: Install dependencies
-          command: |
-            cd frontend
-            yarn install
-  
-      # Run unit tests
-      - run:
-          name: Run unit tests
-          command: |
-            cd frontend
-            yarn test
-  
-      # Optional: Require ESLint checks to pass before building
-      - run:
-          name: Ensure eslint
-          command: |
-            cd frontend
-            yarn lint
-  
+      - setup_frontend
+
       # Build frontend assets
       - run:
           name: Build frontend assets
           command: |
             cd frontend
             yarn build
-  
+
+      # Upload artifacts
+      - store_artifacts:
+          path: frontend/dist
+          destination: frontend
+
       # Save build artifacts
       - persist_to_workspace:
           root: .
           paths:
             - frontend/dist
-          when:
-            equal: [ main, << pipeline.git.branch >> ]
-  
-      # Save cache
-      - save_cache:
-          key: node-dependencies-{{ checksum \"yarn.lock\" }}
-          paths:
-            - frontend/node_modules
+
+  package-docker:
+    executor: ubuntu
+    steps:
+      # Gather the build artifacts (frontend/dist and backend/target/release)
+      - attach_workspace:
+          at: .
+
+      # Build a Docker image for the backend service and push to Docker Hub
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      - run:
+          name: Build and push Docker image
+          when: always
+          command: |
+            if [ -n \"$DOCKER_USERNAME\" ] && [ -n \"$DOCKER_PASSWORD\" ]; then
+              cd backend
+
+              # Get the short Git hash
+              GIT_HASH=$(git rev-parse --short HEAD)
+
+              # Log in to Docker Hub
+              docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+
+              # Build the Docker image and tag it as latest
+              docker build . -t $DOCKER_HUB_USERNAME/{project_name}backend-rust:latest  -f ./Dockerfile
+
+              # Push the latest tag
+              docker push $DOCKER_HUB_USERNAME/{project_name}backend-rust:latest
+
+              # Tag the image with the short Git hash
+              docker tag $DOCKER_HUB_USERNAME/{project_name}backend-rust:latest $DOCKER_HUB_USERNAME/{project_name}backend-rust:$GIT_HASH
+
+              # Push the image with the Git hash tag
+              docker push $DOCKER_HUB_USERNAME/{project_name}backend-rust:$GIT_HASH
+            else
+              echo \"Environment variables [DOCKER_USERNAME, DOCKER_PASSWORD] for docker.io are not set. Skipping the step.\"
+            fi
 
 workflows:
   build_and_test:
     jobs:
-      - build-frontend
-      - build-rust:
-          requires:
-            - build-frontend
+      # Always test for linting, unit tests, and checking if it builds
+      - test-frontend
+      - test-backend
 
-  ", project_name = schema.project_name, copyright_header = copyright)
+      - build-frontend:
+          requires:
+            - test-frontend
+          filters:
+            branches:
+              only: main
+
+      - build-backend:
+          requires:
+            - test-backend
+            - build-frontend
+          filters:
+            branches:
+              only: main
+
+      - package-docker:
+          requires:
+            - build-backend
+          filters:
+            branches:
+              only: main
+  
+", project_name = project_name, copyright_header = copyright)
 }
 
 #[cfg(test)]

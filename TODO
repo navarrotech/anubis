@@ -42,7 +42,11 @@ Generated webhooks
 Generated billing utilities (stripe integration)
 Allow the user to choose different databases
 Auto generated admin dashboard
+Enable serverless integration
+Enable vertical vs horizontal scaling support
 
 <!-- Core -->
+Debug mode to hide all internal CLI println! statements
 
 <!-- Tech debt / Weaknesses -->
+Better CLI error handling and CLI error messages

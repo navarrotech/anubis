@@ -23,11 +23,10 @@ pub fn create_github_actions(schema: &AnubisSchema) -> String {
     let copyright = if schema.copyright_header_formatted.is_empty() {
         schema.copyright_header_formatted.clone()
     } else {
-        format!("# {}", schema.copyright_header_formatted)
+        format!("# {}\n\n", schema.copyright_header_formatted)
     };
 
     format!("{copyright_header}name: Build & Test {project_name}
-
 
 #  This is a generated relic by Anubis. It sets up a GitHub Actions workflow that will:
 #  - Cache the Cargo registry and index
@@ -41,7 +40,6 @@ pub fn create_github_actions(schema: &AnubisSchema) -> String {
 #  
 #  To regenerate this file and restore all defaults, you can run:
 #  `anubis relics create github-actions`
-
 
 on:
   push:
@@ -149,14 +147,16 @@ jobs:
       # Only enabled if you have Docker Hub credentials set in your Github Secrets
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
-        if: github.ref == 'refs/heads/main' && github secrets.DOCKER_HUB_USERNAME != '' && secrets.DOCKER_HUB_ACCESS_TOKEN != ''
+        id: docker_login
+        continue-on-error: true
+        if: github.ref == 'refs/heads/main' 
         with:
           username: ${{{{ secrets.DOCKER_HUB_USERNAME }}}}
           password: ${{{{ secrets.DOCKER_HUB_ACCESS_TOKEN }}}}
 
       # Build and push Docker image
       - name: Build and push Docker image
-        if: github.ref == 'refs/heads/main' && secrets.DOCKER_HUB_USERNAME != '' && secrets.DOCKER_HUB_ACCESS_TOKEN != ''
+        if: github.ref == 'refs/heads/main' && steps.docker_login.conclusion == 'success'
         run: |
           cd backend
 

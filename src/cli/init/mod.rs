@@ -25,7 +25,7 @@ pub fn init(schema: &AnubisSchema) -> io::Result<()> {
     println!("Running initialization...");
 
     // Setup base directories
-    setup_directories(schema.install_directory.as_path())?;
+    setup_directories(schema.install_directory.as_path());
 
     // Setup base Anubis.yaml Schema
     setup_anubis_schema(schema);

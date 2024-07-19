@@ -61,7 +61,7 @@ If you want these swappable sooner, hit that pull request button ;)
 * Backend language - [Rust](https://www.rust-lang.org/)
 * Backend API framework - [Rocket](https://rocket.rs/)
 * Database - [PostgreSQL](https://www.postgresql.org/)
-* Websockets - [Socket.io](https://socket.io/) & [Rust Socket.io](https://github.com/1c3t3a/rust-socketio)
+* Websockets - [Websockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
 * Data shapes - [Protobuf]() and optional JSON API
 * Internationalization - [i18next](https://www.i18next.com/)
 * Frontend - [Preact.js](https://preactjs.com/), compiled with [Vite](https://vitejs.dev/)
