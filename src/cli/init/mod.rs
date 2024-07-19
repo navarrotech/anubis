@@ -24,7 +24,7 @@ pub fn init(schema: &AnubisSchema) -> io::Result<()> {
     setup_cicd(schema);
 
     // Setup base directories
-    setup_directories(&schema.install_directory.as_path())?;
+    setup_directories(schema.install_directory.as_path())?;
 
     // TODO: Create schema file
     // TODO: Create Dockerfiles
