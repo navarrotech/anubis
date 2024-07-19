@@ -3,6 +3,7 @@
 // Lib
 use chrono::Datelike;
 use clap::Parser;
+use cli::validate::{validate, ValidateArgs};
 use std::env;
 
 // Dialoguer
@@ -18,6 +19,7 @@ use crate::schema::AnubisSchema;
 #[command(name = "cargo", bin_name = "cargo")]
 enum CargoCli {
     Init(InitArgs),
+    Validate(ValidateArgs),
 }
 
 fn main() -> std::io::Result<()> {
@@ -57,6 +59,10 @@ fn main() -> std::io::Result<()> {
             };
 
             init(&schema)?;
+        }
+        CargoCli::Validate(_) => {
+            validate();
+            println!("Your Anubis.yaml file is valid!");
         }
     }
 
