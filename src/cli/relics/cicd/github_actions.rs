@@ -111,14 +111,14 @@ jobs:
 
       # Save cargo registry cache
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache/save@v4
         with:
           path: ~/.cargo/registry
           key: ${{{{ runner.os }}}}-cargo-registry-${{{{ hashFiles('**/Cargo.lock') }}}}
 
       # Save cargo index cache
       - name: Cache cargo index
-        uses: actions/cache@v4
+        uses: actions/cache/save@v4
         with:
           path: ~/.cargo/git
           key: ${{{{ runner.os }}}}-cargo-git-${{{{ hashFiles('**/Cargo.lock') }}}}
@@ -215,7 +215,7 @@ jobs:
 
       # Save cache
       - name: Save node_modules cache
-        uses: actions/cache@v4
+        uses: actions/cache/save@v4
         with:
           path: frontend/node_modules
           key: ${{{{ runner.os }}}}-frontend-dependencies-${{{{ hashFiles('**/yarn.lock') }}}}
