@@ -11,11 +11,10 @@ settings:
   scaling: 'horizontal'
   serverless_api: false
 
-
 # Models are what is used to automatically generate your database, protobufs, API, 
 # CRUD routes, and frontend, forms, pages, admin dashboard, etc.
 models:
-  users:
+  user:
     fields:
       - name: id
         type: string
@@ -117,6 +116,9 @@ models:
         type: datetime
 
   preferences:
+    # The has_owner field is a special field that is used to define ownership of a model.
+    # For example, when this model is updated who should get notified? The owner.
+    has_owner: user.id
     favorite_icecream:
       - name: id
         type: string

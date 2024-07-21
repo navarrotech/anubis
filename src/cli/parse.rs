@@ -2,9 +2,9 @@
 
 // Lib
 extern crate yaml_rust;
-use yaml_rust::{YamlLoader, Yaml};
 use chrono::Datelike;
 use std::collections::HashMap;
+use yaml_rust::{Yaml, YamlLoader};
 
 // Custom modules
 use crate::schema::AnubisSchema;
@@ -19,9 +19,10 @@ struct ProjectSchema {
 
 pub fn parse_schema_yaml() -> AnubisSchema {
     println!("Parsing schema.yaml...");
-    
+
     // Read schema.yaml file
-    let yaml_content = std::fs::read_to_string("./examples/Anubis.yaml").expect("Could not read schema.yaml file");
+    let yaml_content =
+        std::fs::read_to_string("./examples/Anubis.yaml").expect("Could not read schema.yaml file");
 
     // Parse schema.yaml file
     let docs = YamlLoader::load_from_str(&yaml_content).unwrap();
@@ -77,10 +78,10 @@ pub fn parse_schema_yaml() -> AnubisSchema {
 }
 
 fn parse_project_schema(yaml: &Yaml) -> ProjectSchema {
-  ProjectSchema {
-      name: yaml["name"].as_str().map(|s| s.to_string()),
-      version: yaml["version"].as_str().map(|s| s.to_string()),
-      copyright_header: yaml["copyright_header"].as_str().map(|s| s.to_string()),
-      description: yaml["description"].as_str().map(|s| s.to_string()),
-  }
+    ProjectSchema {
+        name: yaml["name"].as_str().map(|s| s.to_string()),
+        version: yaml["version"].as_str().map(|s| s.to_string()),
+        copyright_header: yaml["copyright_header"].as_str().map(|s| s.to_string()),
+        description: yaml["description"].as_str().map(|s| s.to_string()),
+    }
 }

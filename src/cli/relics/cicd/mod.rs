@@ -7,8 +7,9 @@ use std::fmt;
 use dialoguer::{theme::ColorfulTheme, Select};
 
 // Crates
-use crate::cli::relics::cicd::circleci::setup_circleci;
-use crate::cli::relics::cicd::github_actions::setup_github_actions;
+use crate::cli::relics::cicd::circleci::create_circleci;
+use crate::cli::relics::cicd::github_actions::create_github_actions;
+use crate::cli::relics::write_relic;
 use crate::schema::AnubisSchema;
 
 #[derive(Debug, Clone)]
@@ -63,14 +64,20 @@ pub fn setup_cicd(schema: &AnubisSchema) {
 
     match option {
         CICDProvider::GitHubActions => {
-            setup_github_actions(schema);
+            let content = create_github_actions(schema);
+            let github_actions_path = schema.install_directory.join(".github/workflows/build.yml");
+
+            write_relic(schema, &content, &github_actions_path);
         }
         CICDProvider::GitLabCI => {
             // TODO: Implement GitLab CI setup
             println!("Setting up GitLab CI...");
         }
         CICDProvider::CircleCI => {
-            setup_circleci(schema);
+            let content = create_circleci(schema);
+            let circleci_path = schema.install_directory.join(".circleci/config.yml");
+
+            write_relic(schema, &content, &circleci_path);
         }
         CICDProvider::Skip => {
             println!("Skipping CI/CD setup...");

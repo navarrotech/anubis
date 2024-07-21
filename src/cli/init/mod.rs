@@ -8,6 +8,7 @@ use std::io;
 use crate::cli::init::setup::setup_directories;
 use crate::cli::relics::anubis_schema::setup_anubis_schema;
 use crate::cli::relics::cicd::setup_cicd;
+use crate::cli::relics::frontend::setup_frontend;
 use crate::schema::AnubisSchema;
 
 #[derive(Args)]
@@ -32,6 +33,9 @@ pub fn init(schema: &AnubisSchema) -> io::Result<()> {
 
     // Have the user choose which CI/CD they want to use
     setup_cicd(schema);
+
+    // Setup frontend
+    setup_frontend(schema);
 
     // TODO: Create Dockerfiles
     // TODO: Create README

@@ -108,6 +108,8 @@ dependencies = [
  "chrono",
  "clap 4.5.9",
  "dialoguer",
+ "json",
+ "serde_json",
  "serde_yaml",
  "tempfile",
  "yaml-rust",
@@ -1438,6 +1440,12 @@ checksum = "29c15563dc2726973df627357ce0c9ddddbea194836909d655df6a75d2cf296d"
 dependencies = [
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "json"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
 name = "kernel32-sys"

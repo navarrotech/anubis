@@ -2,41 +2,16 @@
 
 use crate::schema::AnubisSchema;
 
-pub fn setup_github_actions(schema: &AnubisSchema) {
-    println!("Setting up GitHub Actions...");
-    let content = create_github_actions(schema);
-
-    // Create the file path
-    let file = schema
-        .install_directory
-        .clone()
-        .join(".github/workflows/build.yml");
-
-    // Ensure all parent directories exist
-    std::fs::create_dir_all(file.parent().unwrap()).expect("Unable to create parent directories");
-
-    // Write the file
-    std::fs::write(file, content).expect("Unable to write github actions file");
-}
-
 pub fn create_github_actions(schema: &AnubisSchema) -> String {
-    let copyright = if schema.copyright_header_formatted.is_empty() {
-        schema.copyright_header_formatted.clone()
-    } else {
-        format!("# {}\n\n", schema.copyright_header_formatted)
-    };
+    format!("name: Build & Test {project_name}
 
-    format!("{copyright_header}name: Build & Test {project_name}
-
-#  This is a generated relic by Anubis. It sets up a GitHub Actions workflow that will:
+# This GitHub Actions workflow will:
 #  - Cache the Cargo registry and index
-#  - Ensure unit tests are ran
+#  - Ensure unit tests are ran for frontend and backend
+#  - Ensure lint checks are ran for frontend and backend
 #  - Build the project in release mode
-#  - Push the build artifacts to GitHub
-#  - Optionally create a Docker image and push to Docker Hub
-#  
-#  This file is an Anubis relic, meaning it was only auto-generated from running 'anubis init' and selecting GitHub Actions.
-#  You may safely modify this file as much as you want, and Anubis will not touch this file again.
+#  - Push the build artifacts to GitHub storage
+#  - Optionally create a Docker image and push to Docker Hub if Docker Hub credentials are set
 #  
 #  To regenerate this file and restore all defaults, you can run:
 #  `anubis relics create github-actions`
@@ -242,7 +217,7 @@ jobs:
           path: frontend/node_modules
           key: ${{{{ runner.os }}}}-frontend-dependencies-${{{{ hashFiles('**/yarn.lock') }}}}
 
-    ", project_name = schema.project_name, copyright_header = copyright)
+    ", project_name = schema.project_name)
 }
 
 #[cfg(test)]
@@ -251,7 +226,6 @@ mod check_github_actions {
     use crate::schema::AnubisSchema;
     use serde_yaml;
     use serde_yaml::Error;
-    use tempfile::tempdir;
 
     fn is_valid_yaml(yaml_str: &str) -> Result<(), Error> {
         serde_yaml::from_str::<serde_yaml::Value>(yaml_str).map(|_| ())
@@ -274,36 +248,6 @@ mod check_github_actions {
 
         let content = create_github_actions(&test_schema);
 
-        assert!(is_valid_yaml(content.as_str()).is_ok());
-    }
-
-    #[test]
-    fn ensure_github_actions_yaml_is_valid_with_copyright_header() {
-        let mut test_schema = AnubisSchema::default();
-        test_schema.copyright_header = String::from("// Copyright © {YYYY} Navarrotech");
-        test_schema.copyright_header_formatted = String::from("// Copyright © 2024 Navarrotech");
-
-        let content = create_github_actions(&test_schema);
-
-        assert!(is_valid_yaml(content.as_str()).is_ok());
-    }
-
-    #[test]
-    fn ensure_github_actions_writes_the_file() {
-        let temp_directory = tempdir().unwrap().into_path();
-
-        let mut test_schema = AnubisSchema::default();
-        test_schema.project_name = "Anubis Test".to_string();
-        test_schema.copyright_header = String::from("// Copyright © {YYYY} Navarrotech");
-        test_schema.copyright_header_formatted = String::from("// Copyright © 2024 Navarrotech");
-        test_schema.install_directory = temp_directory.clone();
-
-        setup_github_actions(&test_schema);
-
-        let file_path = temp_directory.join(".github/workflows/build.yml");
-        assert!(file_path.exists());
-
-        let content = std::fs::read_to_string(file_path).unwrap();
         assert!(is_valid_yaml(content.as_str()).is_ok());
     }
 }

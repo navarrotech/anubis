@@ -7,7 +7,7 @@ const DIRS: &[&str] = &[
     "frontend/src",
     "backend/src",
     ".github/workflows",
-    ".anubis",
+    ".anubis/cache",
 ];
 
 pub fn setup_directories(base_path: &Path) {
