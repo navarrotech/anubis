@@ -3,7 +3,8 @@
 use crate::schema::AnubisSchema;
 
 pub fn create_frontend_html(schema: &AnubisSchema) -> String {
-    format!("<!doctype html>
+    format!(
+        "<!doctype html>
 <html lang=\"en\">
   <head>
     <meta charset=\"UTF-8\" />
@@ -39,7 +40,7 @@ pub fn create_frontend_html(schema: &AnubisSchema) -> String {
   </body>
 </html>
 ",
-  project_name = schema.project_name,
-  description = schema.description
-)
+        project_name = schema.project_name,
+        description = schema.description
+    )
 }

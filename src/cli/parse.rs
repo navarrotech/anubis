@@ -3,10 +3,10 @@
 // Lib
 extern crate yaml_rust;
 use chrono::Datelike;
-use std::collections::HashMap;
 use yaml_rust::{Yaml, YamlLoader};
 
 // Custom modules
+use crate::models::{FormatChoice, ModelFields, ModelKind, Models, UseOption};
 use crate::schema::AnubisSchema;
 
 #[derive(Debug)]
@@ -66,6 +66,12 @@ pub fn parse_schema_yaml() -> AnubisSchema {
         None => String::from(""),
     };
 
+    let models = if doc["models"].is_badvalue() {
+        Vec::new()
+    } else {
+        parse_models(&doc["models"])
+    };
+
     AnubisSchema {
         project_name: project.name.unwrap(),
         version,
@@ -73,8 +79,98 @@ pub fn parse_schema_yaml() -> AnubisSchema {
         copyright_header,
         copyright_header_formatted,
         install_directory: std::env::current_dir().unwrap(),
+        models,
         ..Default::default()
     }
+}
+
+fn parse_models(yaml: &Yaml) -> Vec<Models> {
+    let mut models = Vec::new();
+
+    // For each model...
+    for (key, value) in yaml.as_hash().unwrap() {
+        let mut model = Models::default();
+
+        // If it has a 'fields' key...
+        if !value["fields"].is_badvalue() {
+            let mut model_fields = ModelFields::default();
+            let fields_array = value["fields"].as_vec().unwrap();
+
+            for field in fields_array {
+                let fields = field.as_hash().unwrap();
+
+                for (field_key, field_value) in fields {
+                    let field_name = field_key.as_str().unwrap();
+                    let field_value = field_value.as_str().unwrap_or("");
+
+                    match field_name {
+                        // Core fields, required
+                        "name" => model_fields.name = field_value.to_string(),
+                        "kind" => {
+                            model_fields.kind = match field_value {
+                                "string" => ModelKind::String,
+                                "number" => ModelKind::Number,
+                                "boolean" => ModelKind::Boolean,
+                                _ => ModelKind::String,
+                            }
+                        }
+
+                        // Core fields, optional
+                        "default" => model_fields.default = Some(field_value.to_string()),
+
+                        // Boolean fields (default false)
+                        "primary_key" => model_fields.primary_key = true,
+                        "required" => model_fields.required = true,
+                        "encrypt" => model_fields.encrypt = true,
+                        "replicate" => model_fields.replicate = true,
+                        "unique" => model_fields.unique = true,
+
+                        // Enums
+                        "use" => {
+                            model_fields.r#use = match field_value {
+                                "uuid" => Some(UseOption::Uuid),
+                                "unique" => Some(UseOption::Unique),
+                                "created_at" => Some(UseOption::CreatedAt),
+                                "updated_at" => Some(UseOption::UpdatedAt),
+                                _ => None,
+                            }
+                        }
+                        "format" => {
+                            model_fields.format = match field_value {
+                                "email" => Some(FormatChoice::Email),
+                                "phone" => Some(FormatChoice::Phone),
+                                "password" => Some(FormatChoice::Password),
+                                "secret" => Some(FormatChoice::Secret),
+                                _ => None,
+                            }
+                        }
+
+                        // Number fields
+                        "min" | "minimum" => {
+                            model_fields.minimum = field_value.to_string().parse::<u32>().ok();
+                        }
+                        "max" | "maximum" => {
+                            model_fields.maximum = field_value.to_string().parse::<u32>().ok();
+                        }
+
+                        // Misc
+                        "replace_all" => {
+                            model_fields.replace_all = Some(field_value.parse().unwrap())
+                        }
+                        "match" => model_fields.r#match = Some(field_value.to_string()),
+                        "on_unknown" => model_fields.on_unknown = Some(field_value.to_string()),
+                        _ => (),
+                    }
+                }
+            }
+
+            model.fields = model_fields;
+        }
+
+        models.push(model);
+    }
+
+    models
 }
 
 fn parse_project_schema(yaml: &Yaml) -> ProjectSchema {

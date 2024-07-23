@@ -1,0 +1,13 @@
+// Copyright © 2024 Navarrotech
+
+
+
+// This is a generated automatron file by Anubis. 
+// Automatrons are files that are 100% auto-generated regularly by Anubis.
+// It is not safe to edit this file directly, as your changes are extremly likely to be overwritten.
+
+
+syntax = "proto3";
+
+import "common.proto";
+

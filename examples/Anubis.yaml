@@ -17,21 +17,21 @@ models:
   user:
     fields:
       - name: id
-        type: string
+        kind: string
         # Use UUID will automatically generate a UUID for the field
         use: uuid
         # Primary key will automatically set the field as the primary key
         primary_key: true
 
       - name: name
-        type: string
+        kind: string
         # ReplaceAll will remove all non-numeric characters when a user inputs the data
         replaceAll: /\D/
         min: 3
         max: 64
 
       - name: email
-        type: string
+        kind: string
 
         # Applies to form inputs and validators
         # Validators will automatically check the format of the email
@@ -40,7 +40,7 @@ models:
         max: 64
 
       - name: phone
-        type: string
+        kind: string
 
         # Applies to form inputs and validators
         # Validators will automatically check the format of the phone number
@@ -50,7 +50,7 @@ models:
         max: 10
 
       - name: password
-        type: string
+        kind: string
 
         # Applies to form inputs and validators
         format: password
@@ -75,7 +75,7 @@ models:
           - /\d{2}/
 
       - name: language
-        type: string
+        kind: string
 
         # Default value upon initialization
         default: en
@@ -109,11 +109,11 @@ models:
 
       - name: created_at
         use: created_at
-        type: datetime
+        kind: datetime
 
       - name: updated_at
         use: updated_at
-        type: datetime
+        kind: datetime
 
   preferences:
     # The has_owner field is a special field that is used to define ownership of a model.
@@ -121,10 +121,10 @@ models:
     has_owner: user.id
     favorite_icecream:
       - name: id
-        type: string
+        kind: string
         use: uuid
         primary_key: true
       - name: flavor
-        type: string
+        kind: string
         min: 3
         max: 64

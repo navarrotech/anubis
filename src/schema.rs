@@ -1,5 +1,6 @@
 // Copyright © 2024 Navarrotech
 
+use crate::models::Models;
 use std::path::PathBuf;
 
 pub struct AnubisSchema {
@@ -10,6 +11,8 @@ pub struct AnubisSchema {
     pub install_directory: PathBuf,
     pub copyright_header: String,
     pub copyright_header_formatted: String,
+
+    pub models: Vec<Models>,
 }
 
 impl Default for AnubisSchema {
@@ -22,6 +25,7 @@ impl Default for AnubisSchema {
             install_directory: default_install_directory,
             copyright_header: String::from(""),
             copyright_header_formatted: String::from(""),
+            models: Vec::new(),
         }
     }
 }

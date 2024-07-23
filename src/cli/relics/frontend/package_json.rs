@@ -3,9 +3,10 @@
 use crate::schema::AnubisSchema;
 
 pub fn create_package_json(schema: &AnubisSchema) -> String {
-  let project_name = schema.project_name.replace(' ', "-");
+    let project_name = schema.project_name.replace(' ', "-");
 
-    format!("{{
+    format!(
+        "{{
   \"name\": \"{project_name}\",
   \"private\": true,
   \"version\": \"1.0.0\",
@@ -88,8 +89,8 @@ pub fn create_package_json(schema: &AnubisSchema) -> String {
     \"vitest\": \"^1.6.0\"
   }}
 }}",
-    project_name = project_name,
-  )
+        project_name = project_name,
+    )
 }
 
 #[cfg(test)]

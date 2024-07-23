@@ -1,45 +1,90 @@
 // Copyright © 2024 Navarrotech
 
-enum ModelType {
-  String,
-  Number,
-  Boolean,
+pub enum ModelKind {
+    String,
+    Number,
+    Boolean,
 }
 
-enum UseOption {
-  Uuid,
-  CreatedAt,
-  UpdatedAt,
+pub enum UseOption {
+    Uuid,
+    Unique,
+    CreatedAt,
+    UpdatedAt,
 }
 
-enum FormatChoice {
-  Email,
-  Phone,
-  Password,
+pub enum FormatChoice {
+    Email,
+    Phone,
+    Password,
+    Secret,
 }
 
 pub struct ModelFields {
-  name: String,
-  type: ModelType,
-  use: Option<UseOption>,
-  primary_key: Option<bool>,
-  min: Option<i32>,
-  max: Option<i32>,
-  minimum: Option<i32>,
-  maximum: Option<i32>,
-  default: Option<String>,
-  replaceAll: Option<bool>,
-  format: Option<FormatChoice>,
-  required: Option<bool>,
-  encrypt: Option<bool>,
-  replicate: Option<bool>,
-  match: Option<String>,
-  on_unknown: Option<String>,
-  enum: Option<Vec<String>>,
-  unique: Option<bool>,
-  links: Option<String>,
+    // Core fields, required
+    pub name: String,
+    pub kind: ModelKind,
+
+    // Core fields, optional
+    pub default: Option<String>,
+
+    // Boolean fields (default false)
+    pub primary_key: bool,
+    pub required: bool,
+    pub encrypt: bool,
+    pub replicate: bool,
+    pub unique: bool,
+
+    // Enums
+    pub r#use: Option<UseOption>,
+    pub format: Option<FormatChoice>,
+
+    // Number fields
+    pub minimum: Option<u32>,
+    pub maximum: Option<u32>,
+
+    // Misc
+    pub replace_all: Option<String>,
+    pub on_unknown: Option<String>,
+    pub r#match: Option<String>,
+    pub r#enum: Option<Vec<String>>,
+    pub links: Option<String>,
 }
 
-pub struct models {
-  fields: ModelFields
+impl Default for ModelFields {
+    fn default() -> Self {
+        ModelFields {
+            name: String::new(),
+            kind: ModelKind::String,
+            r#use: None,
+            primary_key: false,
+            minimum: None,
+            maximum: None,
+            default: None,
+            replace_all: None,
+            format: None,
+            required: false,
+            encrypt: false,
+            replicate: false,
+            r#match: None,
+            on_unknown: None,
+            r#enum: None,
+            unique: false,
+            links: None,
+        }
+    }
+}
+
+pub struct Models {
+    pub name: String,
+    pub fields: ModelFields,
+}
+
+impl Default for Models {
+    fn default() -> Self {
+        Models {
+            name: String::new(),
+            fields: ModelFields::default(),
+        }
+    }
 }

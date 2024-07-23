@@ -8,7 +8,8 @@ use crate::schema::AnubisSchema;
 #[derive(Args)]
 pub struct ValidateArgs {}
 
-pub fn validate() {
+pub fn validate() -> AnubisSchema {
     let schema = parse_schema_yaml();
     println!("Validating...");
+    schema
 }

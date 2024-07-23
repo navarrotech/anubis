@@ -1,7 +1,8 @@
 // Copyright © 2024 Navarrotech
 
 pub fn create_tsconfig() -> String {
-  String::from("{
+    String::from(
+        "{
   \"compilerOptions\": {
     \"target\": \"ES2020\",
     \"useDefineForClassFields\": true,
@@ -41,11 +42,13 @@ pub fn create_tsconfig() -> String {
     { \"path\": \"./tsconfig.node.json\" }
   ]
 }
-")
+",
+    )
 }
 
 pub fn create_tsconfig_node() -> String {
-    String::from("{
+    String::from(
+        "{
   \"compilerOptions\": {
     \"composite\": true,
     \"skipLibCheck\": true,
@@ -56,9 +59,9 @@ pub fn create_tsconfig_node() -> String {
   },
   \"include\": [\"vite.config.ts\"]
 }
-")
+",
+    )
 }
-
 
 #[cfg(test)]
 mod check_ts_configs {
@@ -67,7 +70,7 @@ mod check_ts_configs {
 
     fn strip_json_comments(json: &str) -> String {
         let mut stripped = String::new();
-  
+
         // For each line in json string...
         // If trimmed line does not starts with "//" or "/*" then add to stripped
         let lines = json.lines();
@@ -83,7 +86,7 @@ mod check_ts_configs {
     #[test]
     fn ensure_tsconfig_json_is_valid() {
         let content = create_tsconfig();
-        
+
         let stripped = strip_json_comments(&content);
         let parsed = json::parse(&stripped);
 

@@ -3,6 +3,7 @@
 // Lib
 use chrono::Datelike;
 use clap::Parser;
+use cli::generate::command::{generate, GenerateArgs};
 use cli::validate::{validate, ValidateArgs};
 use std::env;
 
@@ -20,6 +21,7 @@ use crate::schema::AnubisSchema;
 enum CargoCli {
     Init(InitArgs),
     Validate(ValidateArgs),
+    Generate(GenerateArgs),
 }
 
 fn main() -> std::io::Result<()> {
@@ -59,14 +61,24 @@ fn main() -> std::io::Result<()> {
             };
 
             init(&schema)?;
+            generate(&schema, &GenerateArgs {});
         }
         CargoCli::Validate(_) => {
             validate();
             println!("Your Anubis.yaml file is valid!");
         }
+        CargoCli::Generate(args) => {
+            let schema = validate();
+            generate(&schema, &args);
+        }
     }
 
     Ok(())
 }
+
+mod automatrons;
 mod cli;
+mod models;
+mod relics;
 mod schema;
+mod synthetics;

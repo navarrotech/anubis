@@ -37,8 +37,12 @@ pub fn get_comment_type(file_name: &String) -> String {
     match file_type {
         // Yaml
         "yml" | "yaml" => return String::from("#"),
-        // Rust, Javascript & Typescript
-        "rs" | "js" | "ts" | "tsx" => return String::from("//"),
+        // Rust
+        "rs" => return String::from("//"),
+        // Javascript & Typescript
+        "js" | "ts" | "tsx" => return String::from("//"),
+        // Protobuf
+        "proto" => return String::from("//"),
         _ => (),
     }
 

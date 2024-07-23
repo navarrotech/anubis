@@ -9,7 +9,7 @@ use dialoguer::{theme::ColorfulTheme, Select};
 // Crates
 use crate::cli::relics::cicd::circleci::create_circleci;
 use crate::cli::relics::cicd::github_actions::create_github_actions;
-use crate::cli::relics::write_relic;
+use crate::relics::write::write_relic;
 use crate::schema::AnubisSchema;
 
 #[derive(Debug, Clone)]
