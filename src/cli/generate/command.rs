@@ -12,7 +12,7 @@ use crate::cli::generate::protobufs::generate_protobufs;
 #[derive(Args)]
 pub struct GenerateArgs {
     #[clap(short = 'd', long, default_value = "")]
-    pub directory: String
+    pub directory: String,
 }
 
 pub fn generate(schema: &AnubisSchema, args: &GenerateArgs) {

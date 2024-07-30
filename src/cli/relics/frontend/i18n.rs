@@ -4,7 +4,8 @@ use crate::relics::write::write_relic;
 use crate::schema::AnubisSchema;
 
 pub fn generate_i18next(schema: &AnubisSchema) {
-  let auth_protobuf = format!(r#"
+    let auth_protobuf = format!(
+        r#"
 import i18next from 'i18next'
 import {{ initReactI18next }} from 'react-i18next'
 import Backend from 'i18next-http-backend'
@@ -109,17 +110,21 @@ export const languageLocalizedRecord: Record<string, string> = {{
 // Usable types
 export type SupportedLanguages = typeof supportedLanguages[number]
 export type LanguageKey = keyof typeof languageLocalizedRecord
-"#);
+"#
+    );
 
-  write_relic(
-      schema,
-      &auth_protobuf,
-      &schema.install_directory.join("frontend/src/modules/i18n.ts"),
-  );
+    write_relic(
+        schema,
+        &auth_protobuf,
+        &schema
+            .install_directory
+            .join("frontend/src/modules/i18n.ts"),
+    );
 }
 
 pub fn generate_translation_json(schema: &AnubisSchema) {
-  let auth_protobuf = format!(r#"
+    let auth_protobuf = format!(
+        r#"
 {{
   "brand_name": "{project_name}",
   "brand_subtitle": "Your brand subtitle here",
@@ -146,12 +151,14 @@ pub fn generate_translation_json(schema: &AnubisSchema) {
   "choose_language": "Select your language"
 }}
 "#,
-  project_name = schema.project_name
-);
+        project_name = schema.project_name
+    );
 
-  write_relic(
-      schema,
-      &auth_protobuf,
-      &schema.install_directory.join("frontend/public/locales/en/translation.json"),
-  );
+    write_relic(
+        schema,
+        &auth_protobuf,
+        &schema
+            .install_directory
+            .join("frontend/public/locales/en/translation.json"),
+    );
 }

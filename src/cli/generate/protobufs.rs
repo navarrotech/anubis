@@ -1,9 +1,9 @@
 // Copyright © 2024 Navarrotech
 
 use crate::automatrons::write::write_automatron;
+use crate::models::{FormatChoice, ModelKind, Models, RelationshipMode, UseOption};
 use crate::relics::write::write_relic;
 use crate::schema::AnubisSchema;
-use crate::models::{FormatChoice, ModelKind, Models, RelationshipMode, UseOption};
 
 pub fn generate_protobufs(schema: &AnubisSchema) {
     generate_common_protobuf(schema);
@@ -183,7 +183,8 @@ package custom;
 
 // Add and import your own custom protobuf structs here
 
-"#);
+"#
+    );
 
     write_relic(
         schema,
@@ -203,24 +204,24 @@ fn generate_root_protobuf(schema: &AnubisSchema) {
     let mut models_sync = String::new();
     let mut models_changes = String::new();
     for (index, model) in schema.models.iter().enumerate() {
-        models_sync.push_str(
-            &format!(
-                "    {} {} {} = {};\n",
-                if model.mode == RelationshipMode::OneToMany { "repeated" } else { "optional" },
-                model.name,
-                model.name.to_lowercase(),
-                index + 3
-            )
-        );
+        models_sync.push_str(&format!(
+            "    {} {} {} = {};\n",
+            if model.mode == RelationshipMode::OneToMany {
+                "repeated"
+            } else {
+                "optional"
+            },
+            model.name,
+            model.name.to_lowercase(),
+            index + 3
+        ));
 
-        models_changes.push_str(
-            &format!(
-                "    optional {} {} = {};\n",
-                model.name,
-                model.name.to_lowercase(),
-                index + 2
-            )
-        );
+        models_changes.push_str(&format!(
+            "    optional {} {} = {};\n",
+            model.name,
+            model.name.to_lowercase(),
+            index + 2
+        ));
     }
 
     let common_protobuf: String = format!(
@@ -249,7 +250,9 @@ message ChangeEvent {{
 
 {models_changes}
 }}
-"#, models_imports = models_imports);
+"#,
+        models_imports = models_imports
+    );
 
     write_automatron(
         schema,
@@ -278,12 +281,7 @@ fn generate_model_protobuf(schema: &AnubisSchema, model: &Models) {
             && field.format != Some(FormatChoice::Password)
             && field.replicate == false
         {
-            inner_struct.push_str(&format!(
-                "    {} {} = {};\n",
-                proto_type,
-                field.name,
-                i + 1
-            ));
+            inner_struct.push_str(&format!("    {} {} = {};\n", proto_type, field.name, i + 1));
         }
 
         if field.name != "id"
@@ -302,7 +300,11 @@ fn generate_model_protobuf(schema: &AnubisSchema, model: &Models) {
 
         update_struct.push_str(&format!(
             "    {} {} {} = {};\n",
-            if field.required || field.name == "id" { "" } else { "optional" },
+            if field.required || field.name == "id" {
+                ""
+            } else {
+                "optional"
+            },
             proto_type,
             field.name,
             i + 1
@@ -327,17 +329,17 @@ message update_{name} {{
 {update_struct}
 }}
 "#,
-    name = model.name,
-    inner_struct = inner_struct,
-    create_struct = create_struct,
-    update_struct = update_struct
-);
+        name = model.name,
+        inner_struct = inner_struct,
+        create_struct = create_struct,
+        update_struct = update_struct
+    );
 
     write_automatron(
         schema,
         &model_protobuf,
-        &schema.install_directory.join(
-            format!("./proto/structs/{}.proto", model_protobuf)
-        ),
+        &schema
+            .install_directory
+            .join(format!("./proto/structs/{}.proto", model_protobuf)),
     );
 }

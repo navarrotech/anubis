@@ -64,12 +64,18 @@ fn main() -> std::io::Result<()> {
             };
 
             init(&schema)?;
-            generate(&schema, &GenerateArgs {
-                directory: install_directory.to_str().unwrap().to_string(),
-            });
-            install_dependencies(&schema, &InstallDependenciesArgs {
-                directory: install_directory.to_str().unwrap().to_string(),
-            });
+            generate(
+                &schema,
+                &GenerateArgs {
+                    directory: install_directory.to_str().unwrap().to_string(),
+                },
+            );
+            install_dependencies(
+                &schema,
+                &InstallDependenciesArgs {
+                    directory: install_directory.to_str().unwrap().to_string(),
+                },
+            );
         }
         CargoCli::Validate(args) => {
             validate(&args);

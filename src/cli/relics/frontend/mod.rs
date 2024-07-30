@@ -74,14 +74,13 @@ pub fn setup_frontend(schema: &AnubisSchema) {
     generate_frontend_core(schema);
     generate_scss(schema);
     generate_seo(schema);
-
 }
 
 pub mod eslint;
-pub mod package_json;
-pub mod tsconfig;
-pub mod vite;
-pub mod i18n;
 pub mod frontend_core;
+pub mod i18n;
+pub mod package_json;
 pub mod scss;
 pub mod seo;
+pub mod tsconfig;
+pub mod vite;

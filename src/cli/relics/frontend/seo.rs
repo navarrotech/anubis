@@ -4,29 +4,32 @@ use crate::relics::write::write_relic;
 use crate::schema::AnubisSchema;
 
 pub fn generate_seo(schema: &AnubisSchema) {
-  generate_robots_txt(schema);
-  generate_manifest(schema);
+    generate_robots_txt(schema);
+    generate_manifest(schema);
 }
 
 // TODO: Build this out
 fn generate_robots_txt(schema: &AnubisSchema) {
-  let auth_protobuf = format!(r#"
+    let auth_protobuf = format!(
+        r#"
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
 Disallow:
 
-"#);
+"#
+    );
 
-  write_relic(
-      schema,
-      &auth_protobuf, 
-      &schema.install_directory.join("frontend/public/robots.txt"),
-  );
+    write_relic(
+        schema,
+        &auth_protobuf,
+        &schema.install_directory.join("frontend/public/robots.txt"),
+    );
 }
 
 // TODO: Build this out
 fn generate_manifest(schema: &AnubisSchema) {
-  let auth_protobuf = format!(r#"
+    let auth_protobuf = format!(
+        r#"
 {{
   \"short_name\": \"{name}\",
   \"name\": \"{name}\",
@@ -53,12 +56,14 @@ fn generate_manifest(schema: &AnubisSchema) {
   \"background_color\": \"\#ffffff\"
 }}
 "#,
-  name = schema.project_name
-);
+        name = schema.project_name
+    );
 
-  write_relic(
-      schema,
-      &auth_protobuf, 
-      &schema.install_directory.join("frontend/public/manifest.json"),
-  );
+    write_relic(
+        schema,
+        &auth_protobuf,
+        &schema
+            .install_directory
+            .join("frontend/public/manifest.json"),
+    );
 }

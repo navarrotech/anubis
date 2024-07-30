@@ -98,9 +98,7 @@ impl Default for Models {
         Models {
             name: String::new(),
             mode: RelationshipMode::OneToOne,
-            fields: Vec::from([
-                ModelFields::default()
-            ]),
+            fields: Vec::from([ModelFields::default()]),
         }
     }
 }

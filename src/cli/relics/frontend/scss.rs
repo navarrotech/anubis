@@ -4,19 +4,22 @@ use crate::relics::write::write_relic;
 use crate::schema::AnubisSchema;
 
 pub fn generate_scss(schema: &AnubisSchema) {
-  write_relic(
-      schema,
-      &format!(r#"
+    write_relic(
+        schema,
+        &format!(
+            r#"
 // Sass modules
 @import "@/sass/bulma.scss"
 @import "@/sass/fonts.sass"
-"#),
-      &schema.install_directory.join("frontend/src/index.sass"),
-  );
-  
-  write_relic(
-    schema,
-    &format!(r#"
+"#
+        ),
+        &schema.install_directory.join("frontend/src/index.sass"),
+    );
+
+    write_relic(
+        schema,
+        &format!(
+            r#"
 // Branding
 $primary: #48d0fd
 $link: #48d0fd
@@ -44,26 +47,33 @@ $tablet: 769px
 $desktop: 960px + 2 * $gap
 $widescreen: 1152px + 2 * $gap
 $fullhd: 1344px + 2 * $gap
-"#),
-    &schema.install_directory.join("frontend/src/sass/theme.sass"),
-  );
+"#
+        ),
+        &schema
+            .install_directory
+            .join("frontend/src/sass/theme.sass"),
+    );
 
-  write_relic(
-    schema,
-    &format!(
-r#"// https://fonts.google.com/share?selection.family=Montserrat:ital,wght@0,100..900;1,100..900
+    write_relic(
+        schema,
+        &format!(
+            r#"// https://fonts.google.com/share?selection.family=Montserrat:ital,wght@0,100..900;1,100..900
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap')
 
 // https://fonts.google.com/share?selection.family=Archivo+Black
 @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap')
 
-"#),
-    &schema.install_directory.join("frontend/src/sass/fonts.sass"),
-  );
+"#
+        ),
+        &schema
+            .install_directory
+            .join("frontend/src/sass/fonts.sass"),
+    );
 
-  write_relic(
-    schema,
-    &format!(r#"
+    write_relic(
+        schema,
+        &format!(
+            r#"
 $family-titles: "Archivo Black", Roboto, sans-serif;
 $family-primary: "Montserrat", Arial, sans-serif;
 
@@ -78,7 +88,10 @@ $family-primary: "Montserrat", Arial, sans-serif;
 
 // Bulma extensions
 @import "bulma-divider";
-"#),
-    &schema.install_directory.join("frontend/src/sass/fonts.sass"),
-  );
+"#
+        ),
+        &schema
+            .install_directory
+            .join("frontend/src/sass/fonts.sass"),
+    );
 }

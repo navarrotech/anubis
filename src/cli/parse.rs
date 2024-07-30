@@ -23,14 +23,13 @@ pub fn parse_schema_yaml(root_directory: PathBuf) -> AnubisSchema {
     println!("Parsing schema.yaml...");
 
     // Read schema.yaml file
-    let yaml_content =
-        std::fs::read_to_string(
-            root_directory
-                .join("Anubis.yaml")
-                .to_str()
-                .expect("Could not convert schema.yaml path to string"),
-        )
-        .expect("Could not read schema.yaml file");
+    let yaml_content = std::fs::read_to_string(
+        root_directory
+            .join("Anubis.yaml")
+            .to_str()
+            .expect("Could not convert schema.yaml path to string"),
+    )
+    .expect("Could not read schema.yaml file");
 
     // Parse schema.yaml file
     let docs = YamlLoader::load_from_str(&yaml_content).unwrap();

@@ -8,7 +8,7 @@ use crate::schema::AnubisSchema;
 #[derive(Args)]
 pub struct ValidateArgs {
     #[clap(short = 'd', long, default_value = "")]
-    pub directory: String
+    pub directory: String,
 }
 
 pub fn validate(args: &ValidateArgs) -> AnubisSchema {
