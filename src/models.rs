@@ -1,23 +1,35 @@
 // Copyright © 2024 Navarrotech
 
+#[derive(PartialEq)]
 pub enum ModelKind {
     String,
     Number,
+    Float,
     Boolean,
+    DateTime,
 }
 
+#[derive(PartialEq)]
 pub enum UseOption {
     Uuid,
     Unique,
+    OwnerLink,
     CreatedAt,
     UpdatedAt,
 }
 
+#[derive(PartialEq)]
 pub enum FormatChoice {
     Email,
     Phone,
     Password,
     Secret,
+}
+
+#[derive(PartialEq)]
+pub enum RelationshipMode {
+    OneToOne,
+    OneToMany,
 }
 
 pub struct ModelFields {
@@ -36,7 +48,7 @@ pub struct ModelFields {
     pub unique: bool,
 
     // Enums
-    pub r#use: Option<UseOption>,
+    pub use_method: Option<UseOption>,
     pub format: Option<FormatChoice>,
 
     // Number fields
@@ -46,8 +58,8 @@ pub struct ModelFields {
     // Misc
     pub replace_all: Option<String>,
     pub on_unknown: Option<String>,
-    pub r#match: Option<String>,
-    pub r#enum: Option<Vec<String>>,
+    pub use_match: Option<String>,
+    pub use_enum: Option<Vec<String>>,
     pub links: Option<String>,
 }
 
@@ -56,7 +68,7 @@ impl Default for ModelFields {
         ModelFields {
             name: String::new(),
             kind: ModelKind::String,
-            r#use: None,
+            use_method: None,
             primary_key: false,
             minimum: None,
             maximum: None,
@@ -66,9 +78,9 @@ impl Default for ModelFields {
             required: false,
             encrypt: false,
             replicate: false,
-            r#match: None,
+            use_match: None,
             on_unknown: None,
-            r#enum: None,
+            use_enum: None,
             unique: false,
             links: None,
         }
@@ -77,14 +89,18 @@ impl Default for ModelFields {
 
 pub struct Models {
     pub name: String,
-    pub fields: ModelFields,
+    pub mode: RelationshipMode,
+    pub fields: Vec<ModelFields>,
 }
 
 impl Default for Models {
     fn default() -> Self {
         Models {
             name: String::new(),
-            fields: ModelFields::default(),
+            mode: RelationshipMode::OneToOne,
+            fields: Vec::from([
+                ModelFields::default()
+            ]),
         }
     }
 }

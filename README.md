@@ -69,6 +69,19 @@ If you want these swappable sooner, hit that pull request button ;)
 * Frontend state - [Spiccato](https://www.npmjs.com/package/spiccato) by qdizon
 * Frontend css - [Tailwinds CSS](https://tailwindcss.com/)
 
+## Opinionated shapes
+The backend is opinionated about the user document and user preferences document. You cannot modify the core user document. Anubis is built to have things extend the user document like one-to-one database fields but not modify the user document directly.
+
+Anubis also will allow for multiple authentication methods, including password, passwordless, oauth, phone code, etc. Anubis also allows for Auth multi-factor through code and phone built-in.
+
+## Time clock
+ALL time in Anubis is done in UTC time. This includes inbound dates, outbound dates, saved database dates, everything. 
+
+The user preferences document includes a timezone field, and the frontend will convert times from UTC before showing to the user. Likewise the frontend will also convert all dates into UTC time before sending to the backend. The backend always expects all dates as UTC.
+
+## Future goals
+The goal is to have Anubis also integrate with custom anubis plugins to extend functionality, so for example, you could use a firebase-auth plugin that will use serverless firebase to authenticate your entire application.
+
 ## What about custom features?
 Let's say I want to put a Leaflet/Mapbox map into the software, or maybe I'm building a dating app and have very untraditional UI for swiping left/right. 
 

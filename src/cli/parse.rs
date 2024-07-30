@@ -110,7 +110,10 @@ fn parse_models(yaml: &Yaml) -> Vec<Models> {
                             model_fields.kind = match field_value {
                                 "string" => ModelKind::String,
                                 "number" => ModelKind::Number,
+                                "float" => ModelKind::Float,
                                 "boolean" => ModelKind::Boolean,
+                                "datetime" => ModelKind::DateTime,
+                                "date" => ModelKind::DateTime,
                                 _ => ModelKind::String,
                             }
                         }
@@ -127,9 +130,10 @@ fn parse_models(yaml: &Yaml) -> Vec<Models> {
 
                         // Enums
                         "use" => {
-                            model_fields.r#use = match field_value {
+                            model_fields.use_method = match field_value {
                                 "uuid" => Some(UseOption::Uuid),
                                 "unique" => Some(UseOption::Unique),
+                                "owner" => Some(UseOption::OwnerLink),
                                 "created_at" => Some(UseOption::CreatedAt),
                                 "updated_at" => Some(UseOption::UpdatedAt),
                                 _ => None,
@@ -157,14 +161,14 @@ fn parse_models(yaml: &Yaml) -> Vec<Models> {
                         "replace_all" => {
                             model_fields.replace_all = Some(field_value.parse().unwrap())
                         }
-                        "match" => model_fields.r#match = Some(field_value.to_string()),
+                        "match" => model_fields.use_match = Some(field_value.to_string()),
                         "on_unknown" => model_fields.on_unknown = Some(field_value.to_string()),
                         _ => (),
                     }
                 }
             }
 
-            model.fields = model_fields;
+            model.fields.push(model_fields);
         }
 
         models.push(model);

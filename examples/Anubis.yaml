@@ -119,6 +119,7 @@ models:
     # The has_owner field is a special field that is used to define ownership of a model.
     # For example, when this model is updated who should get notified? The owner.
     has_owner: user.id
+    mode: one-to-one
     favorite_icecream:
       - name: id
         kind: string
@@ -128,3 +129,25 @@ models:
         kind: string
         min: 3
         max: 64
+
+  transactions:
+    mode: one-to-many
+    has_owner: user.id
+    fields:
+      - name: id
+        kind: string
+        use: uuid
+        primary_key: true
+      - name: user_id
+        kind: string
+        use: owner
+      - name: amount
+        kind: float
+        min: 0
+        max: 1000000
+      - name: created_at
+        use: created_at
+        kind: datetime
+      - name: updated_at
+        use: updated_at
+        kind: datetime

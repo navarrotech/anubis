@@ -7,17 +7,16 @@ use clap::Args;
 use crate::schema::AnubisSchema;
 
 // Setup sub-functions
-use crate::cli::generate::protobufs::{
-    generate_common_protobuf, generate_protobufs, generate_root_protobuf,
-};
+use crate::cli::generate::protobufs::generate_protobufs;
 
 #[derive(Args)]
-pub struct GenerateArgs {}
+pub struct GenerateArgs {
+    #[clap(short = 'd', long, default_value = "")]
+    pub directory: String
+}
 
 pub fn generate(schema: &AnubisSchema, args: &GenerateArgs) {
     println!("Generating project...");
-    generate_common_protobuf(schema);
-    generate_root_protobuf(schema);
     generate_protobufs(schema);
     println!("Project generated successfully!");
 }

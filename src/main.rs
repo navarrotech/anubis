@@ -51,24 +51,28 @@ fn main() -> std::io::Result<()> {
             };
 
             let copyright_header_formatted = copyright_header.replace("{YYYY}", &year.to_string());
+            let install_directory = env::current_dir()?.join(&args.directory);
 
             let schema = AnubisSchema {
                 project_name,
                 copyright_header,
                 copyright_header_formatted,
-                install_directory: env::current_dir()?.join(&args.directory),
+                install_directory: install_directory.clone(),
                 ..Default::default()
             };
 
             init(&schema)?;
-            generate(&schema, &GenerateArgs {});
+            generate(&schema, &GenerateArgs {
+                directory: install_directory.to_str().unwrap().to_string(),
+            });
         }
         CargoCli::Validate(_) => {
             validate();
             println!("Your Anubis.yaml file is valid!");
         }
         CargoCli::Generate(args) => {
-            let schema = validate();
+            let mut schema = validate();
+            schema.install_directory = env::current_dir()?.join(&args.directory);
             generate(&schema, &args);
         }
     }
