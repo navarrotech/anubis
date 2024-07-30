@@ -27,16 +27,13 @@ pub fn write_relic(schema: &AnubisSchema, content: &String, file_path: &PathBuf)
 
     let comment_type = get_comment_type(&file_name);
     let copyright = get_copyright_header(schema, &file_name);
-    let preamble = format!(
-        "
-{comment} This is a generated relic by Anubis. 
+    let preamble = format!("{comment} This is a generated relic by Anubis. 
 {comment} Relics are files that are only auto-generated once and never touched again by Anubis.
-{comment} You may safely modify this file as much as you want, you are in full control of this file.
-",
+{comment} You may safely modify this file as much as you want, you are in full control of this file.",
         comment = comment_type
     );
 
-    if file_type != "md" && file_type != "html" && file_type != "json" {
+    if file_type != "md" && file_type != "html" && file_type != "json" && file_type != "txt" {
         super_content = format!(
             "{copyright}\n{preamble}\n{content}",
             preamble = preamble,
@@ -81,7 +78,7 @@ mod relics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("# Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("# Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("Foo Bazz"));
     }
 
@@ -96,7 +93,7 @@ mod relics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -111,7 +108,7 @@ mod relics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -126,7 +123,7 @@ mod relics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -141,7 +138,7 @@ mod relics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("let foo = String::from(\"noop\");"));
     }
 }

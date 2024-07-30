@@ -64,25 +64,25 @@ jobs:
       - name: Install dependencies
         if: steps.cache-cargo-registry.outputs.cache-hit != 'true' && steps.cache-cargo-index.outputs.cache-hit != 'true'
         run: |
-          cd backend
+          cd api
           cargo fetch
 
       # Optional: Require Rust formatting
       - name: Check Rust formatting
         run: |
-          cd backend
+          cd api
           cargo fmt --all -- --check
 
       # Run unit tests
       - name: Run Rust unit tests
         run: |
-          cd backend
+          cd api
           cargo test
 
       # Build the release candidate
       - name: Build for release
         run: |
-          cd backend
+          cd api
           cargo build --release
 
       # Download the frontend assets to be included in the Docker builds
@@ -133,22 +133,22 @@ jobs:
       - name: Build and push Docker image
         if: github.ref == 'refs/heads/main' && steps.docker_login.conclusion == 'success'
         run: |
-          cd backend
+          cd api
 
           # Get the short Git hash
           GIT_HASH=$(git rev-parse --short HEAD)
           
           # Build the Docker image and tag it as latest
-          docker build . -t ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-backend-rust:latest -f ./Dockerfile
+          docker build . -t ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-api-rust:latest -f ./Dockerfile
           
           # Push the latest tag
-          docker push ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-backend-rust:latest
+          docker push ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-api-rust:latest
           
           # Tag the image with the short Git hash
-          docker tag ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-backend-rust:latest ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-backend-rust:$GIT_HASH
+          docker tag ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-api-rust:latest ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-api-rust:$GIT_HASH
           
           # Push the image with the Git hash tag
-          docker push ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-backend-rust:$GIT_HASH
+          docker push ${{{{ secrets.DOCKER_HUB_USERNAME }}}}/{project_name}-api-rust:$GIT_HASH
 
       # Optional, remove the frontend assets artifact
       # This can be useful if you don't want to keep the frontend assets after building the Docker image

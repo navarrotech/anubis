@@ -4,6 +4,7 @@
 use chrono::Datelike;
 use clap::Parser;
 use cli::generate::command::{generate, GenerateArgs};
+use cli::install::{install_dependencies, InstallDependenciesArgs};
 use cli::validate::{validate, ValidateArgs};
 use std::env;
 
@@ -22,6 +23,7 @@ enum CargoCli {
     Init(InitArgs),
     Validate(ValidateArgs),
     Generate(GenerateArgs),
+    Install(InstallDependenciesArgs),
 }
 
 fn main() -> std::io::Result<()> {
@@ -65,15 +67,25 @@ fn main() -> std::io::Result<()> {
             generate(&schema, &GenerateArgs {
                 directory: install_directory.to_str().unwrap().to_string(),
             });
+            install_dependencies(&schema, &InstallDependenciesArgs {
+                directory: install_directory.to_str().unwrap().to_string(),
+            });
         }
-        CargoCli::Validate(_) => {
-            validate();
+        CargoCli::Validate(args) => {
+            validate(&args);
             println!("Your Anubis.yaml file is valid!");
         }
         CargoCli::Generate(args) => {
-            let mut schema = validate();
-            schema.install_directory = env::current_dir()?.join(&args.directory);
+            let schema = validate(&ValidateArgs {
+                directory: args.directory.clone(),
+            });
             generate(&schema, &args);
+        }
+        CargoCli::Install(args) => {
+            let schema = validate(&ValidateArgs {
+                directory: args.directory.clone(),
+            });
+            install_dependencies(&schema, &args);
         }
     }
 

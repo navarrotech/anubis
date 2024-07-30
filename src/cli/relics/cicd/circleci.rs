@@ -56,7 +56,7 @@ commands:
           paths:
             - frontend/node_modules
 
-  setup_backend:
+  setup_api:
     steps:
       # Cache dependencies
       - restore_cache:
@@ -71,7 +71,7 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            cd backend
+            cd api
             cargo fetch
 
       # Save cache
@@ -114,57 +114,57 @@ jobs:
             cd frontend
             yarn lint
 
-  test-backend:
+  test-api:
     executor: rust
 
     steps:
       - checkout
-      - setup_backend
+      - setup_api
 
       # Run unit tests
       - run:
           name: Run Rust unit tests
           command: |
-            cd backend
+            cd api
             cargo test
 
       # Optional: Require Rust formatting
       - run:
           name: Check Rust formatting
           command: |
-            cd backend
+            cd api
             cargo fmt --all -- --check
 
       # Optional: Require Rust clippy checks
       - run:
           name: Check Rust formatting
           command: |
-            cd backend
+            cd api
             cargo add --dev clippy
             cargo clippy
 
-  build-backend:
+  build-api:
     executor: rust
     steps:
       - checkout
-      - setup_backend
+      - setup_api
 
       # Build the release candidate
       - run:
           name: Build for release
           command: |
-            cd backend
+            cd api
             cargo build --release
 
       # Save build artifacts
       - store_artifacts:
-          path: backend/target/release
-          destination: backend-release
+          path: api/target/release
+          destination: api-release
 
       - persist_to_workspace:
           root: .
           paths:
-            - backend/target/release
+            - api/target/release
 
   build-frontend:
     executor: node
@@ -193,11 +193,11 @@ jobs:
   package-docker:
     executor: ubuntu
     steps:
-      # Gather the build artifacts (frontend/dist and backend/target/release)
+      # Gather the build artifacts (frontend/dist and api/target/release)
       - attach_workspace:
           at: .
 
-      # Build a Docker image for the backend service and push to Docker Hub
+      # Build a Docker image for the api service and push to Docker Hub
       - setup_remote_docker:
           docker_layer_caching: true
 
@@ -206,7 +206,7 @@ jobs:
           when: always
           command: |
             if [ -n \"$DOCKER_USERNAME\" ] && [ -n \"$DOCKER_PASSWORD\" ]; then
-              cd backend
+              cd api
 
               # Get the short Git hash
               GIT_HASH=$(git rev-parse --short HEAD)
@@ -215,16 +215,16 @@ jobs:
               docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
 
               # Build the Docker image and tag it as latest
-              docker build . -t $DOCKER_HUB_USERNAME/{project_name}backend-rust:latest  -f ./Dockerfile
+              docker build . -t $DOCKER_HUB_USERNAME/{project_name}api-rust:latest  -f ./Dockerfile
 
               # Push the latest tag
-              docker push $DOCKER_HUB_USERNAME/{project_name}backend-rust:latest
+              docker push $DOCKER_HUB_USERNAME/{project_name}api-rust:latest
 
               # Tag the image with the short Git hash
-              docker tag $DOCKER_HUB_USERNAME/{project_name}backend-rust:latest $DOCKER_HUB_USERNAME/{project_name}backend-rust:$GIT_HASH
+              docker tag $DOCKER_HUB_USERNAME/{project_name}api-rust:latest $DOCKER_HUB_USERNAME/{project_name}api-rust:$GIT_HASH
 
               # Push the image with the Git hash tag
-              docker push $DOCKER_HUB_USERNAME/{project_name}backend-rust:$GIT_HASH
+              docker push $DOCKER_HUB_USERNAME/{project_name}api-rust:$GIT_HASH
             else
               echo \"Environment variables [DOCKER_USERNAME, DOCKER_PASSWORD] for docker.io are not set. Skipping the step.\"
             fi
@@ -234,7 +234,7 @@ workflows:
     jobs:
       # Always test for linting, unit tests, and checking if it builds
       - test-frontend
-      - test-backend
+      - test-api
 
       - build-frontend:
           requires:
@@ -243,9 +243,9 @@ workflows:
             branches:
               only: main
 
-      - build-backend:
+      - build-api:
           requires:
-            - test-backend
+            - test-api
             - build-frontend
           filters:
             branches:
@@ -253,7 +253,7 @@ workflows:
 
       - package-docker:
           requires:
-            - build-backend
+            - build-api
           filters:
             branches:
               only: main

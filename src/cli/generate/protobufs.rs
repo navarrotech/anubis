@@ -23,6 +23,7 @@ syntax = "proto3";
 
 package auth;
 
+// A standardized user struct for authentication
 message User {{
     string id = 1;
     optional string email = 2;
@@ -43,6 +44,7 @@ enum Theme {{
     SYSTEM = 2;
 }}
 
+// Preferences for the user
 message UserPreferences {{
     string language = 1;
     Theme theme = 2;
@@ -252,7 +254,7 @@ message ChangeEvent {{
     write_automatron(
         schema,
         &common_protobuf,
-        &schema.install_directory.join("./proto/common.proto"),
+        &schema.install_directory.join("./proto/root.proto"),
     );
 }
 

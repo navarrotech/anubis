@@ -118,7 +118,7 @@ function main(content: string) {
     }
   }
 
-  if (out.endsWith('\n\n')) {
+  if (out.endsWith('\n')) {
     out = out.slice(0, -1)
   }
 

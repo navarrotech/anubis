@@ -28,15 +28,17 @@ pub fn write_automatron(schema: &AnubisSchema, content: &String, file_path: &Pat
     let comment_type = get_comment_type(&file_name);
     let copyright = get_copyright_header(schema, &file_name);
     let preamble = format!(
-        "
+"{comment} ////////////////////////////////////////////
+{comment} // !! AUTO GENERATED FILE, DO NOT EDIT !! //
+{comment} ////////////////////////////////////////////
+
 {comment} This is a generated automatron file by Anubis. 
 {comment} Automatrons are files that are 100% auto-generated regularly by Anubis.
-{comment} It is not safe to edit this file directly, as your changes are extremly likely to be overwritten.
-",
+{comment} It is not safe to edit this file directly, as your changes are extremly likely to be overwritten.",
         comment = comment_type
     );
 
-    if file_type != "md" && file_type != "html" && file_type != "json" {
+    if file_type != "md" && file_type != "html" && file_type != "json" && file_type != "gitignore" {
         super_content = format!(
             "{copyright}\n{preamble}\n{content}",
             preamble = preamble,
@@ -81,7 +83,7 @@ mod automatrons {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("# Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("# Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("Foo Bazz"));
     }
 
@@ -96,7 +98,7 @@ mod automatrons {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -111,7 +113,7 @@ mod automatrons {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -126,7 +128,7 @@ mod automatrons {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -141,7 +143,7 @@ mod automatrons {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("let foo = String::from(\"noop\");"));
     }
 }

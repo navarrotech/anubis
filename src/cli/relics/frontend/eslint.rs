@@ -26,7 +26,7 @@ module.exports = {{
   ignorePatterns: [
     'dist',
     'vite-env.d.ts',
-    '.eslintrc.js',
+    '.eslintrc.cjs',
     'node_modules',
     '.json'
   ],

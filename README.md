@@ -66,7 +66,7 @@ If you want these swappable sooner, hit that pull request button ;)
 * Internationalization - [i18next](https://www.i18next.com/)
 * Frontend - [Preact.js](https://preactjs.com/), compiled with [Vite](https://vitejs.dev/)
 * Frontend unit tests - [Vitest](https://vitest.dev/)
-* Frontend state - [Spiccato](https://www.npmjs.com/package/spiccato) by qdizon
+* Frontend state - [React Redux](https://redux.js.org/)
 * Frontend css - [Tailwinds CSS](https://tailwindcss.com/)
 
 ## Opinionated shapes

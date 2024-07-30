@@ -24,6 +24,9 @@ export default defineConfig({
     svgr()
   ],
   css: {
+    // Auto inject @use rules into headers of all scss/sass files before compiled
+    // This only affects Vite css modules (*.module.sass or *.module.scss), and this does not global stylesheets
+    // Great for using theme variables in all modules without having to re-import each time
     preprocessorOptions: {
       sass: {
         additionalData: `
@@ -40,6 +43,7 @@ export default defineConfig({
     }
   },
   resolve: {
+    // Resolve all paths that start with @ to the root src/ directory:
     alias: {
       '@': path.resolve(__dirname, 'src')
     }

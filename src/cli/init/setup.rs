@@ -5,9 +5,24 @@ use std::path::Path;
 
 const DIRS: &[&str] = &[
     "frontend/src",
-    "backend/src",
+    "frontend/public/locales/en",
+    "frontend/public/images",
+    "frontend/public/brands",
+    "frontend/src/common",
+    "frontend/src/elements",
+    "frontend/src/modules",
+    "frontend/src/modules/protobuf",
+    "frontend/src/modules/auth",
+    "frontend/src/modules/core",
+    "frontend/src/sass",
+    "frontend/src/store",
+    "frontend/src/routes",
+    "api/src",
+    "api/src/routes",
+    "api/src/utility",
+    "api/src/middleware",
     ".github/workflows",
-    ".anubis/cache",
+    // ".anubis/cache",
     "proto/",
 ];
 

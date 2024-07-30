@@ -46,6 +46,7 @@ Enable serverless integration
 Enable vertical vs horizontal scaling support
 
 <!-- Core -->
+On init, ask for project name & description
 Debug mode to hide all internal CLI println! statements
 
 <!-- Tech debt / Weaknesses -->

@@ -9,6 +9,7 @@ use crate::cli::init::setup::setup_directories;
 use crate::cli::relics::anubis_schema::setup_anubis_schema;
 use crate::cli::relics::cicd::setup_cicd;
 use crate::cli::relics::frontend::setup_frontend;
+use crate::cli::relics::gitignore::generate_gitignore;
 use crate::schema::AnubisSchema;
 
 #[derive(Args)]
@@ -27,6 +28,9 @@ pub fn init(schema: &AnubisSchema) -> io::Result<()> {
 
     // Setup base directories
     setup_directories(schema.install_directory.as_path());
+
+    // Base gitignore:
+    generate_gitignore(schema);
 
     // Setup base Anubis.yaml Schema
     setup_anubis_schema(schema);

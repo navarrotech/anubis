@@ -7,3 +7,4 @@ pub mod parse;
 pub mod relics;
 pub mod synthetics;
 pub mod validate;
+pub mod install;

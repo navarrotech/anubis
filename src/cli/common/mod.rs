@@ -11,7 +11,7 @@ pub fn get_copyright_header(schema: &AnubisSchema, file_name: &String) -> String
 
     if !comment_type.is_empty() {
         return format!(
-            "{comment} {copyright}\n\n",
+            "{comment} {copyright}\n",
             comment = comment_type,
             copyright = schema.copyright_header_formatted
         );

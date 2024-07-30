@@ -1,7 +1,12 @@
 // Copyright © 2024 Navarrotech
 
 use eslint::create_eslint;
+use frontend_core::generate_frontend_core;
+use i18n::generate_i18next;
+use i18n::generate_translation_json;
 use package_json::create_package_json;
+use scss::generate_scss;
+use seo::generate_seo;
 use tsconfig::create_tsconfig;
 use tsconfig::create_tsconfig_node;
 use vite::create_vite_config;
@@ -26,7 +31,7 @@ pub fn setup_frontend(schema: &AnubisSchema) {
     write_relic(
         schema,
         &create_eslint(schema),
-        &schema.install_directory.join("frontend/.eslintrc.js"),
+        &schema.install_directory.join("frontend/.eslintrc.cjs"),
     );
 
     // Tsconfig.json
@@ -63,9 +68,20 @@ pub fn setup_frontend(schema: &AnubisSchema) {
         &create_frontend_html(schema),
         &schema.install_directory.join("frontend/index.html"),
     );
+
+    generate_i18next(schema);
+    generate_translation_json(schema);
+    generate_frontend_core(schema);
+    generate_scss(schema);
+    generate_seo(schema);
+
 }
 
 pub mod eslint;
 pub mod package_json;
 pub mod tsconfig;
 pub mod vite;
+pub mod i18n;
+pub mod frontend_core;
+pub mod scss;
+pub mod seo;

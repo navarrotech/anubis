@@ -27,11 +27,9 @@ pub fn write_synthetic(schema: &AnubisSchema, content: &String, file_path: &Path
 
     let comment_type = get_comment_type(&file_name);
     let copyright = get_copyright_header(schema, &file_name);
-    let preamble = format!("
-{comment} This is a synthetic Anubis file. 
+    let preamble = format!("{comment} This is a synthetic Anubis file. 
 {comment} Synthetic are files that Anubis writes and manages, but Anubis will always honor your changes.
-{comment} Take caution while editing this file, it may change in the future & you are in partial control of this file.
-", comment = comment_type);
+{comment} Take caution while editing this file, it may change in the future & you are in partial control of this file.", comment = comment_type);
 
     if file_type != "md" && file_type != "html" && file_type != "json" {
         super_content = format!(
@@ -165,7 +163,7 @@ mod synthetics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("# Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("# Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("Foo Bazz"));
     }
 
@@ -180,7 +178,7 @@ mod synthetics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -195,7 +193,7 @@ mod synthetics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -210,7 +208,7 @@ mod synthetics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("const foo = 'bar';"));
     }
 
@@ -225,7 +223,7 @@ mod synthetics {
 
         let file_contents = std::fs::read_to_string(file_path).unwrap();
 
-        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n\n"));
+        assert!(file_contents.starts_with("// Copyright © 2024 Navarrotech\n"));
         assert!(file_contents.contains("let foo = String::from(\"noop\");"));
     }
 
