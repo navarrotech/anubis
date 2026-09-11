@@ -1,45 +1,66 @@
 # Tenancy, Teams, and Organizations
 
-Anubis adopts Bullet Train's multi-tenancy model ("teams should be an MVP feature") and extends it two levels: Organizations sit above Teams, and SubTenants sit between them.
+Anubis adopts Bullet Train's multi-tenancy model ("teams should be an MVP feature") and extends it with two structures that sit **beside each other** rather than nesting: an Organization holds Teams, which are groups of people carrying roles, and SubTenants, which are containers the work lives in.
+
+Which way round they are is the whole of the model. A team says *who may act and with which roles*. A sub-tenant says *which container a resource sits in*. Neither is required to know about the other, and the only thing connecting them is which sub-tenants a team reaches.
 
 ## Entity model
 
 ```
 User ─< OrganizationMembership >─ Organization
-                                       │
-                                       ├─< SubTenant
-                                       │      │
-User ─< SubTenantMembership >──────────┘      │
-                                              │
-User ─< TeamMembership >─ Team ───────────────┘  (nullable sub_tenant_id)
+                                    │    │
+                                    │    └─< SubTenant >─ TeamSubTenant ─┐
+                                    │             │                      │
+User ─< SubTenantMembership >───────┼─────────────┘                      │
+                                    │                                    │
+User ─< TeamMembership >─ Team ─────┴────────────────────────────────────┘
+                            (sub_tenant_scope: organization | explicit)
 ```
 
 - **User**: a person who can log in. Owns credentials, profile, and preferences. Owns nothing domain-related directly.
 - **Organization**: the top-level tenant. The billing and policy umbrella. It owns people and policy, not work.
-- **SubTenant**: the tier that owns the work. GCP calls it a project, Jira calls it a project, GitHub calls it a repository, Linear calls it a workspace; the shape is the same every time. It belongs to exactly one Organization and holds its own membership and its own Teams.
-- **Team**: the working tenant. All domain resources chain their ownership back to a Team.
+- **SubTenant**: a container the work lives in. GCP calls it a project, Jira calls it a project, GitHub calls it a repository, Linear calls it a workspace; the shape is the same every time. It belongs to exactly one Organization and holds its own membership. Optional in the strongest sense: an organization may have none, and a resource that belongs to no project belongs to the Organization.
+- **Team**: a group of people carrying role keys. It can also own resources of its own, the ones that belong to a group rather than to a project: communications, file artifacts, anything a team keeps.
+- **TeamSubTenant**: one grant of one team's reach into one sub-tenant. Read only for a team scoped `explicit`; an organization-scoped team reaches every sub-tenant without a row here.
 - **OrganizationMembership**: joins a User to an Organization, carrying org-level roles (org admin, billing), an `access` level, and a `suspended_at` marker.
-- **SubTenantMembership**: joins a User to a SubTenant, carrying sub-tenant-level roles and its own `suspended_at`. This is the explicit grant a guest reaches a sub-tenant through.
+- **SubTenantMembership**: joins a User to a SubTenant, carrying sub-tenant-level roles and its own `suspended_at`. This is the explicit grant a guest reaches a sub-tenant through, and the row an administrator suspends to cut somebody out of one project without touching their standing anywhere else.
 - **TeamMembership**: joins a User to a Team, carrying team-level roles. Domain resources are assigned to TeamMemberships, never directly to Users. This allows assigning work to invited people who have not signed up yet, and keeps assignments intact when a user leaves.
 - **Invitation**: created when someone is added to a Team or Organization by email. The emailed 256-bit token (hashed at rest, 14-day expiry) is the credential; whichever signed-in account holds it may claim, and claiming consumes the invitation. Team invitations pre-create the unclaimed TeamMembership, so the membership (id, roles, and any resource assignments) survives the claim intact; organization invitations create the OrganizationMembership at claim time. Re-inviting an email replaces the pending invitation. Inviting requires the admin role on the target, and organization admins may invite to any team in their organization. An admin can revoke a pending invitation, which discards the unclaimed membership with it; a claimed invitation no longer exists, so a claim cannot be taken back.
 - **Role**: declared in `roles.yml`, granted through memberships at any of the three levels.
 
-At signup, every user gets a personal Organization containing a default SubTenant ("Main") and a default Team ("General"), so solo use requires zero tenancy ceremony. The UI reveals organization complexity only when the user opts into it.
+At signup, every user gets a personal Organization containing a default Team ("General"), so solo use requires zero tenancy ceremony. **No sub-tenant is created**: the tier is opt-in, and a project nobody asked for would be a row that shows up in every picker and means nothing. The UI reveals organization complexity only when the user opts into it.
 
-## The sub-tenant tier
+### A worked example
 
-The tier is optional in every sense that matters: an application that never surfaces it sees a complete ownership chain regardless, because every organization has a sub-tenant from the moment it exists, and an ownership chain that ends in `Team` keeps working exactly as it did. What the tier adds is a place for applications whose domain is organized around projects, repositories, or workspaces, where mapping that concept onto a Team collapses the tier the product is built around.
+An organization, Jalapeno Labs, with four teams and two projects:
 
-A Team's `sub_tenant_id` is nullable, and the two states are GitHub's split between an organization team and repository access:
+| Team | Scope | Reaches |
+|---|---|---|
+| Leadership | `organization` | Game One, Game Two, and every project made later |
+| Dev | `explicit` | Game One, Game Two |
+| QA | `explicit` | Game One |
+| Marketing | `explicit` | nothing, so only its own work and the organization's |
 
-- **Null** is an organization-level team, inherited by every sub-tenant in the organization. This is the state a team is created in, and the state every team was in before the tier existed.
-- **Set** scopes the team to one sub-tenant, and it never leaks to another. A composite foreign key over `(sub_tenant_id, organization_id)` makes a team scoped to another organization's sub-tenant impossible in the schema rather than only in the queries that read it.
+Two questions are answered in two places, and keeping them apart is what makes the model work. **Tenancy** decides which projects a team reaches. **`roles.yml`** decides which models and actions a role grants. Marketing not seeing the dev team's designs is the second question, not the first: reaching Game One says nothing about being allowed to read a `Design` in it.
+
+A person belongs to as many teams as they need, and holds the union of every role those teams carry, plus anything granted to them directly at the organization or the project.
+
+## Sub-tenants, and how a team reaches them
+
+The tier is optional: an application that never surfaces it never sees it, and an ownership chain that ends in `Team` keeps working exactly as it did. What the tier adds is a place for applications whose domain is organized around projects, repositories, or workspaces, where mapping that concept onto a Team collapses the structure the product is built around.
+
+A Team's `sub_tenant_scope` is the whole of its relationship to the tier, and the two states are GitHub's split between a team with organization-wide repository access and one granted repositories by name. The choice is about what happens to projects created **later**:
+
+- **`organization`** reaches every sub-tenant in the organization, the ones created after the team included. This is the state a team is created in, so a team is never born reaching nothing.
+- **`explicit`** reaches exactly the sub-tenants named in `team_sub_tenants`, and never picks up a new one on its own. That set may be empty, which is legitimate: a marketing team whose work is all its own needs no project at all.
+
+The relationship is many-to-many because both facts are ordinary: one team works on several projects, and one project is worked on by several teams. Both of `team_sub_tenants`'s foreign keys are composite over the row's own `organization_id`, so a grant spanning two organizations is unrepresentable in the schema rather than merely refused by the queries that read it.
 
 ### Access resolution
 
 `anubis::tenancy::resolve_sub_tenant_access` is the one function that answers who reaches a sub-tenant and with which roles. Nothing re-derives it: two call sites working the rules out for themselves would eventually disagree about who may read something, and a disagreement between two authorization paths is a data leak.
 
-**A suspension is a deny.** It is checked before any grant and outranks every one of them, the organization administrator's bypass included, because a deny an admin bit silently ignored would not be a deny. A suspended organization membership cuts the member out of every tenant in the organization; a suspended sub-tenant membership cuts them out of that sub-tenant and the teams scoped to it. All three guards honor it.
+**A suspension is a deny.** It is checked before any grant and outranks every one of them, the organization administrator's bypass included, because a deny an admin bit silently ignored would not be a deny. A suspended organization membership cuts the member out of everything in the organization, the team routes included. A suspended sub-tenant membership cuts them out of **that sub-tenant only**, and leaves their teams alone: the two structures are orthogonal, so cutting somebody out of a project says nothing about the group of people they belong to, whose own work is not in that project.
 
 Otherwise a grant applies when any of these hold, and the caller's resolved roles are the **union** of every grant that applies. Permission is monotone in the role set (`RoleSet::can` asks whether *any* held role grants the action), so the union is exactly the strongest standing the caller holds across the tiers:
 
@@ -49,20 +70,23 @@ Otherwise a grant applies when any of these hold, and the caller's resolved role
 | Full organization member | `access = full` cascades into every sub-tenant |
 | Guest | `access = guest` cascades into nothing, and reaches only what was granted by name |
 | Sub-tenant membership | An explicit grant, applying to full members and guests alike, since it can only add |
-| Team | An organization-level team is inherited by every sub-tenant; a scoped team reaches only its own |
+| Team | An `organization`-scoped team reaches every sub-tenant; an `explicit` one reaches the ones it was granted |
 
-Two consequences are worth stating rather than leaving to be discovered. An organization membership marked `guest` that also holds `admin` is a contradiction an administrator can write, and admin wins. And a team membership grants reach whatever the member's organization access says, because putting somebody on a team is itself the explicit act: an administrator confining a guest to one sub-tenant scopes the team to it rather than leaving the team organization-level.
+Two consequences are worth stating rather than leaving to be discovered. An organization membership marked `guest` that also holds `admin` is a contradiction an administrator can write, and admin wins. And a team membership grants reach whatever the member's organization access says, because putting somebody on a team is itself the explicit act: an administrator confining a guest to one project scopes their team to it rather than leaving it organization-wide.
 
 The `SubTenantMember` guard is the first caller. It resolves the route's `{sub_tenant_id}` and answers `404` for a sub-tenant that does not exist and for one the caller cannot reach, byte-identical, so probing ids reveals nothing.
 
+`anubis::tenancy::list_reachable_sub_tenants` answers the same question for a whole organization, and is what the listing endpoint serves. It applies the same rules through the same function rather than restating them, gathering every grant once instead of once per project: a listing that admitted one project more than the guard does would be a leak, and one that admitted fewer would be a screen nobody can explain.
+
 ### Not built yet
 
-The tier's foundation is the schema, the model, the resolution function, the guard, and the auto-created default. Still to come, tracked on [Anubis #93](https://github.com/JalapenoLabs/Anubis/issues/93):
+The schema, the model, both resolution functions, the guard, and the management endpoints ship. Still to come, tracked on [Anubis #93](https://github.com/JalapenoLabs/Anubis/issues/93):
 
-- The scaffolder's template family for an ownership chain ending in `SubTenant`, and the equivalents of the three existing depth templates.
-- Management endpoints and screens for creating, renaming, and deleting a sub-tenant, managing its roster, scoping a team to it, and setting `access` and `suspended_at`. Until they exist, an application writes those columns itself.
+- **The ownership roots.** A scaffolded model chains to a `Team` and nothing else yet. The model this page describes needs three: `Team` as today, `SubTenant` for project work, and `Organization` for work that belongs to everyone the roles admit. Each is a living-template family rather than a flag, for the reason three-level ownership was: a name-for-name transform of a two-table query never produces a differently-rooted one. This is the largest remaining piece and the one that makes the tier usable by an application.
+- **`resolve_organization_access`**, the reach question for an organization-owned resource, which is deliberately *not* the `OrganizationMember` guard. Administering a tenant needs a membership in it; reaching a resource it owns needs only a path to it, which a team-only member has. Collapsing the two would let a team admin reach `DELETE /tenancy/organizations/{id}`.
+- **Roster and suspension endpoints** for a sub-tenant: enrolling a guest by name, changing their project-level roles, and setting `suspended_at` on either membership. Until they exist, an application writes those columns itself. The endpoint that suspends must take the same organization lock the other membership changes take, so the last-admin invariant covers it.
 - The membership overview (`GET /tenancy/memberships`) does not yet group teams by sub-tenant.
-- The last-admin invariant does not yet cover suspension, because nothing in the framework creates one. The endpoint that does must take the same organization lock the other membership changes take.
+- Screens for all of the above.
 
 ## Ownership chain
 
@@ -104,6 +128,11 @@ Tenancy is manageable from the API, not only at signup. The routes mount under `
 | `DELETE /tenancy/organizations/{organization_id}` | org admin | Delete the organization, its teams, and their records |
 | `POST /tenancy/organizations/{organization_id}/teams` | org admin | Create a team, with the creator as its admin member |
 | `DELETE /tenancy/organizations/{organization_id}/teams/{team_id}` | org admin | Delete a team and its records |
+| `PUT /tenancy/organizations/{organization_id}/teams/{team_id}/sub-tenants` | org admin | Replace which sub-tenants the team reaches |
+| `GET /tenancy/organizations/{organization_id}/sub-tenants` | org member | The sub-tenants the caller reaches, with their roles |
+| `POST /tenancy/organizations/{organization_id}/sub-tenants` | org admin | Create a sub-tenant |
+| `PATCH /tenancy/organizations/{organization_id}/sub-tenants/{sub_tenant_id}` | org admin | Rename a sub-tenant |
+| `DELETE /tenancy/organizations/{organization_id}/sub-tenants/{sub_tenant_id}` | org admin | Delete a sub-tenant and its records |
 | `GET /tenancy/organizations/{organization_id}/members` | org member | The organization roster, outstanding invitations included |
 | `DELETE /tenancy/organizations/{organization_id}/members/{membership_id}` | org admin | Remove another organization member |
 | `POST /tenancy/organizations/{organization_id}/leave` | org member | Leave the organization |
@@ -117,6 +146,8 @@ Tenancy is manageable from the API, not only at signup. The routes mount under `
 Team-scoped routes take the `TeamMember` guard, organization-scoped routes take `OrganizationMember`, and sub-tenant-scoped routes take `SubTenantMember`, so the discipline is the one every ownership chain follows: `401` when signed out, `404` when the caller is not a member (byte-identical to a nonexistent id), and `403` when a member lacks the role. Dissolving a team is an organization act rather than a team act, which is why deletion is nested under the organization: a team's own admins run the team, and the organization decides whether the team exists.
 
 Roles are replaced wholesale rather than patched, so a request states the end state and two admins editing the same member cannot interleave into a set neither asked for. Every requested key is checked against the compiled `roles.yml`; an unknown key is a `400`, and an empty list means the baseline `default` role.
+
+A team's reach is replaced the same way and for the same reason. `PUT .../teams/{team_id}/sub-tenants` takes `{"scope": "organization"}` or `{"scope": "explicit", "sub_tenant_ids": [...]}`; a list beside the organization scope is a `400` rather than a silent discard, since an organization-wide team already reaches every project and a list would be a second answer to a settled question. A project named twice is granted once. Both sub-tenant management and team reach are **organization-level acts**: letting a team's own admin grant it a project would let a team widen its own reach, and naming a project is administering the organization's structure. Deleting a project leaves every team standing and simply reaches one fewer, because a project closing does not dissolve the group of people who worked on it.
 
 A tenant's name is one to a hundred characters and carries no control characters. The length is a display bound; the control characters are refused because the name is rendered into an invitation's subject line, where a line break is at best a display bug and at worst an attempt at a header of the caller's own. An invited email address goes through the same validation registration uses, for the same reason. The mail layer encodes whatever it is given, so both are the second lock rather than the only one.
 
