@@ -58,7 +58,9 @@ use crate::schema::{
     invitations, organization_memberships, organizations, team_memberships, teams, users,
 };
 use crate::tenancy::bootstrap::{self, ADMIN_ROLE, holds_admin};
-use crate::tenancy::model::{Organization, OrganizationMembership, Team, TeamMembership};
+use crate::tenancy::model::{
+    Organization, OrganizationMembership, SubTenantScope, Team, TeamMembership,
+};
 use crate::tenancy::routes::{TenancyState, log_internal, normalize_roles};
 
 /// Longest accepted organization or team name.
@@ -264,17 +266,17 @@ async fn create_team(
     let mut connection = state.pool.get().await.map_err(log_internal)?;
     let team = connection
         .transaction::<Team, diesel::result::Error, _>(async |transaction| {
-            let team =
-                // Organization-level, so the team is inherited by every
-                // sub-tenant: scoping one is a follow-up endpoint's act.
-                bootstrap::create_team(
-                    transaction,
-                    member.organization.id,
-                    &name,
-                    None,
-                    member.user.id,
-                )
-                    .await?;
+            // Organization-scoped, so the team reaches every sub-tenant:
+            // narrowing it is a deliberate act of its own endpoint, and a
+            // team created without one should not be born reaching nothing.
+            let team = bootstrap::create_team(
+                transaction,
+                member.organization.id,
+                &name,
+                SubTenantScope::Organization,
+                member.user.id,
+            )
+            .await?;
             // Recorded against the new team rather than its organization, so
             // the first line of a team's own log says where the team came from.
             audit::record(

@@ -17,7 +17,7 @@ use uuid::Uuid;
 use crate::http::FieldOption;
 use crate::schema::{
     invitations, organization_memberships, organizations, sub_tenant_memberships, sub_tenants,
-    team_memberships, teams, users,
+    team_memberships, team_sub_tenants, teams, users,
 };
 
 /// The top-level tenant: owns teams, billing, and org-wide settings.
@@ -38,10 +38,12 @@ pub struct Organization {
 /// The tier between an organization and its teams: it owns the work.
 ///
 /// A sub-tenant is what GCP calls a project, Jira calls a project, and GitHub
-/// calls a repository. It holds its own membership and its own teams, while
-/// the organization above it stays the billing and policy umbrella. Every
-/// organization has at least one, created with it, so an application that
-/// never surfaces the tier still has a complete ownership chain.
+/// calls a repository: a container the work lives in. It holds its own
+/// membership, while the organization above it stays the billing and policy
+/// umbrella and teams beside it carry the permissions.
+///
+/// The tier is optional in the strongest sense: an organization may have none,
+/// and a resource that belongs to no project belongs to the organization.
 #[derive(Debug, Clone, Serialize, Queryable, Selectable)]
 #[diesel(table_name = sub_tenants)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -58,7 +60,12 @@ pub struct SubTenant {
     pub updated_at: DateTime<Utc>,
 }
 
-/// The working tenant: all domain resources chain ownership back to a team.
+/// A group of people carrying role keys, and a tenant resources can chain to.
+///
+/// Teams and sub-tenants are orthogonal: a team says who may act and with
+/// which roles, a sub-tenant says which container the work sits in, and
+/// [`sub_tenant_scope`](Self::sub_tenant_scope) is the whole of the
+/// relationship between them.
 #[derive(Debug, Clone, Serialize, Queryable, Selectable)]
 #[diesel(table_name = teams)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -73,9 +80,88 @@ pub struct Team {
     pub created_at: DateTime<Utc>,
     /// When the team was last updated.
     pub updated_at: DateTime<Utc>,
-    /// The sub-tenant this team is scoped to, or `None` for an
-    /// organization-level team that every sub-tenant inherits.
-    pub sub_tenant_id: Option<Uuid>,
+    /// Which of the organization's sub-tenants this team reaches.
+    pub sub_tenant_scope: SubTenantScope,
+}
+
+/// Which of an organization's sub-tenants a team reaches.
+///
+/// The two states are GitHub's split between a team with organization-wide
+/// repository access and one granted repositories by name, and the choice is
+/// about what happens to sub-tenants created later: an
+/// [`Organization`](Self::Organization)-scoped team picks them up
+/// automatically, an [`Explicit`](Self::Explicit) one never does.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, AsExpression, FromSqlRow, Default,
+)]
+#[diesel(sql_type = Text)]
+#[serde(rename_all = "snake_case")]
+pub enum SubTenantScope {
+    /// Reaches every sub-tenant in the organization, including future ones.
+    #[default]
+    Organization,
+    /// Reaches exactly the sub-tenants granted in `team_sub_tenants`, which
+    /// may be none at all: a team whose work is all its own needs no project.
+    Explicit,
+}
+
+impl SubTenantScope {
+    /// The value's spelling in the database and in JSON.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Organization => "organization",
+            Self::Explicit => "explicit",
+        }
+    }
+}
+
+impl ToSql<Text, Pg> for SubTenantScope {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
+        out.write_all(self.as_str().as_bytes())?;
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl FromSql<Text, Pg> for SubTenantScope {
+    fn from_sql(bytes: PgValue<'_>) -> deserialize::Result<Self> {
+        // A `CHECK` constraint keeps any other value out of the column, so an
+        // unknown one is a corrupted row rather than a scope to guess at.
+        // Failing loudly beats quietly reading it as the wider of the two.
+        match bytes.as_bytes() {
+            b"organization" => Ok(Self::Organization),
+            b"explicit" => Ok(Self::Explicit),
+            other => Err(format!(
+                "unknown sub-tenant scope {:?}",
+                String::from_utf8_lossy(other)
+            )
+            .into()),
+        }
+    }
+}
+
+/// Grants one team reach into one sub-tenant.
+///
+/// Rows are read only for a team scoped [`Explicit`](SubTenantScope::Explicit);
+/// an organization-scoped team reaches every sub-tenant without one. The
+/// `organization_id` both sides agree on is carried rather than derived, so a
+/// grant spanning two organizations cannot be written at all.
+#[derive(Debug, Clone, Serialize, Queryable, Selectable)]
+#[diesel(table_name = team_sub_tenants)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct TeamSubTenant {
+    /// Primary key.
+    pub id: Uuid,
+    /// The team granted reach.
+    pub team_id: Uuid,
+    /// The sub-tenant it reaches.
+    pub sub_tenant_id: Uuid,
+    /// The organization both belong to.
+    pub organization_id: Uuid,
+    /// When the grant was created.
+    pub created_at: DateTime<Utc>,
+    /// When the grant was last updated.
+    pub updated_at: DateTime<Utc>,
 }
 
 /// How far an organization membership reaches into the organization's work.
@@ -372,7 +458,15 @@ pub(crate) struct NewSubTenant<'a> {
 pub(crate) struct NewTeam<'a> {
     pub organization_id: Uuid,
     pub name: &'a str,
-    pub sub_tenant_id: Option<Uuid>,
+    pub sub_tenant_scope: SubTenantScope,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = team_sub_tenants)]
+pub(crate) struct NewTeamSubTenant {
+    pub team_id: Uuid,
+    pub sub_tenant_id: Uuid,
+    pub organization_id: Uuid,
 }
 
 #[derive(Insertable)]

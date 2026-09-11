@@ -26,13 +26,14 @@
 //! 3. **The caller holds a membership in this sub-tenant.** This is the
 //!    explicit grant, and it applies to full members and guests alike, since
 //!    it can only add.
-//! 4. **The caller belongs to a team that reaches this sub-tenant.** An
-//!    organization-level team (null `sub_tenant_id`) is inherited by every
-//!    sub-tenant; a team scoped to one sub-tenant never leaks to another.
-//!    A team membership grants reach whatever the member's organization
-//!    access says, because putting somebody on a team is itself the explicit
-//!    act: an administrator confining a guest to one sub-tenant scopes the
-//!    team to it rather than leaving the team organization-level.
+//! 4. **The caller belongs to a team that reaches this sub-tenant.** A team
+//!    scoped `organization` reaches every sub-tenant in it, the ones created
+//!    after the team included; a team scoped `explicit` reaches exactly the
+//!    ones it holds a `team_sub_tenants` grant for, and never leaks to
+//!    another. A team membership grants reach whatever the member's
+//!    organization access says, because putting somebody on a team is itself
+//!    the explicit act: an administrator confining a guest to one sub-tenant
+//!    scopes their team to it rather than leaving it organization-wide.
 //!
 //! The resolved role set is the **union** of every applying grant's roles.
 //! Permission is monotone in the role set ([`RoleSet::can`] asks whether *any*
@@ -48,11 +49,12 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use uuid::Uuid;
 
 use crate::schema::{
-    organization_memberships, sub_tenant_memberships, sub_tenants, team_memberships, teams,
+    organization_memberships, sub_tenant_memberships, sub_tenants, team_memberships,
+    team_sub_tenants, teams,
 };
 use crate::tenancy::bootstrap::holds_admin;
 use crate::tenancy::model::{
-    OrganizationAccess, OrganizationMembership, SubTenant, SubTenantMembership,
+    OrganizationAccess, OrganizationMembership, SubTenant, SubTenantMembership, SubTenantScope,
 };
 
 /// The strongest path by which a caller reached a sub-tenant, weakest first.
@@ -63,8 +65,8 @@ use crate::tenancy::model::{
 /// one, because the roles do that.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Reach {
-    /// Through a team: one scoped to this sub-tenant, or an
-    /// organization-level team that every sub-tenant inherits.
+    /// Through a team: one granted this sub-tenant by name, or one scoped
+    /// to the whole organization.
     Team,
     /// Through a membership in this sub-tenant, and nothing broader.
     Grant,
@@ -143,17 +145,23 @@ pub async fn resolve_sub_tenant_access(
         .await
         .optional()?;
 
-    // The teams of this organization that reach this sub-tenant: the
-    // organization-level ones every sub-tenant inherits, and the ones scoped
-    // to this sub-tenant. A team scoped elsewhere is filtered out here, which
-    // is what stops it leaking.
+    // The caller's teams in this organization that reach this sub-tenant: the
+    // organization-scoped ones, and the explicit ones holding a grant for it.
+    // An explicit team without a grant is filtered out by the left join's null
+    // check, which is what stops a scoped team leaking into a project it was
+    // never given.
     let team_roles: Vec<Vec<String>> = team_memberships::table
         .inner_join(teams::table)
+        .left_join(
+            team_sub_tenants::table.on(team_sub_tenants::team_id
+                .eq(teams::id)
+                .and(team_sub_tenants::sub_tenant_id.eq(sub_tenant.id))),
+        )
         .filter(teams::organization_id.eq(sub_tenant.organization_id))
         .filter(
-            teams::sub_tenant_id
-                .is_null()
-                .or(teams::sub_tenant_id.eq(sub_tenant.id)),
+            teams::sub_tenant_scope
+                .eq(SubTenantScope::Organization)
+                .or(team_sub_tenants::id.is_not_null()),
         )
         .filter(team_memberships::user_id.eq(user_id))
         .select(team_memberships::roles)

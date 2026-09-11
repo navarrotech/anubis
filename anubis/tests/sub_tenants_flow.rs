@@ -1,12 +1,12 @@
 //! The sub-tenant tier, resolved end to end against a real Postgres database.
 //!
-//! One story, told in the order somebody would live it: a founder signs up and
-//! finds a sub-tenant already there, a second one is created, and then four
+//! One story, told in the order somebody would live it: a founder signs up
+//! into an organization with no projects at all, creates two, and then four
 //! kinds of person try to reach them. Every rule in
 //! `anubis::tenancy::resolve_sub_tenant_access` has a step here, and the ones
 //! that matter most are the refusals: a guest who was granted one sub-tenant
-//! must not see the other, a team scoped to a sub-tenant must not leak out of
-//! it, a suspension must beat every grant including an administrator's, and a
+//! must not see the other, a team granted one must not leak into the other, a
+//! suspension must beat every grant including an administrator's, and a
 //! sub-tenant the caller cannot reach must be indistinguishable from one that
 //! does not exist.
 //!
@@ -19,7 +19,8 @@ use anubis::guard::{SubTenantMember, TeamMember};
 use anubis::http::ApiError;
 use anubis::roles::Action;
 use anubis::schema::{
-    organization_memberships, sub_tenant_memberships, sub_tenants, team_memberships, teams, users,
+    organization_memberships, sub_tenant_memberships, sub_tenants, team_memberships,
+    team_sub_tenants, teams, users,
 };
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -85,27 +86,18 @@ async fn user_id(connection: &mut AsyncPgConnection, email: &str) -> Uuid {
         .expect("the registered account must exist")
 }
 
-/// The organization, sub-tenant, and team registration bootstrapped for a user.
-async fn bootstrapped(connection: &mut AsyncPgConnection, user: Uuid) -> (Uuid, Uuid, Uuid) {
-    let (team, organization): (Uuid, Uuid) = teams::table
+/// The organization and team registration bootstrapped for a user.
+async fn bootstrapped(connection: &mut AsyncPgConnection, user: Uuid) -> (Uuid, Uuid) {
+    teams::table
         .inner_join(
             team_memberships::table.on(team_memberships::team_id
                 .eq(teams::id)
                 .and(team_memberships::user_id.eq(user))),
         )
-        .select((teams::id, teams::organization_id))
+        .select((teams::organization_id, teams::id))
         .first(connection)
         .await
-        .expect("registration bootstraps one team");
-
-    let sub_tenant: Uuid = sub_tenants::table
-        .filter(sub_tenants::organization_id.eq(organization))
-        .select(sub_tenants::id)
-        .first(connection)
-        .await
-        .expect("registration bootstraps one sub-tenant");
-
-    (organization, sub_tenant, team)
+        .expect("registration bootstraps one team")
 }
 
 async fn create_sub_tenant(
@@ -128,18 +120,36 @@ async fn create_team(
     connection: &mut AsyncPgConnection,
     organization: Uuid,
     name: &str,
-    sub_tenant: Option<Uuid>,
+    scope: &str,
 ) -> Uuid {
     diesel::insert_into(teams::table)
         .values((
             teams::organization_id.eq(organization),
             teams::name.eq(name),
-            teams::sub_tenant_id.eq(sub_tenant),
+            teams::sub_tenant_scope.eq(scope),
         ))
         .returning(teams::id)
         .get_result(connection)
         .await
         .expect("the team must be creatable")
+}
+
+/// Grants an explicitly scoped team reach into one sub-tenant.
+async fn grant_sub_tenant(
+    connection: &mut AsyncPgConnection,
+    organization: Uuid,
+    team: Uuid,
+    sub_tenant: Uuid,
+) {
+    diesel::insert_into(team_sub_tenants::table)
+        .values((
+            team_sub_tenants::team_id.eq(team),
+            team_sub_tenants::sub_tenant_id.eq(sub_tenant),
+            team_sub_tenants::organization_id.eq(organization),
+        ))
+        .execute(connection)
+        .await
+        .expect("the grant must be writable");
 }
 
 async fn join_team(connection: &mut AsyncPgConnection, team: Uuid, user: Uuid, roles: &[&str]) {
@@ -282,9 +292,10 @@ async fn sub_tenant_access_resolves_across_every_tier() {
     let stranger_id = user_id(&mut connection, &stranger_email).await;
 
     // ---------------------------------------------------------------------
-    // Signing up creates the tier, so an application never sees it missing.
+    // Signing up creates no project at all: the tier is opt-in, and work that
+    // belongs to no project belongs to the organization.
     // ---------------------------------------------------------------------
-    let (organization, main, general) = bootstrapped(&mut connection, founder_id).await;
+    let (organization, general) = bootstrapped(&mut connection, founder_id).await;
     let sub_tenants_in_organization: i64 = sub_tenants::table
         .filter(sub_tenants::organization_id.eq(organization))
         .count()
@@ -292,20 +303,21 @@ async fn sub_tenant_access_resolves_across_every_tier() {
         .await
         .expect("the count must run");
     assert_eq!(
-        sub_tenants_in_organization, 1,
-        "registration bootstraps exactly one sub-tenant",
+        sub_tenants_in_organization, 0,
+        "registration creates no sub-tenant, so an organization starts with none",
     );
-    let general_scope: Option<Uuid> = teams::table
+    let general_scope: String = teams::table
         .find(general)
-        .select(teams::sub_tenant_id)
+        .select(teams::sub_tenant_scope)
         .first(&mut connection)
         .await
         .expect("the bootstrapped team must exist");
-    assert!(
-        general_scope.is_none(),
-        "the bootstrapped team stays organization-level, so every sub-tenant inherits it",
+    assert_eq!(
+        general_scope, "organization",
+        "the bootstrapped team reaches every project, including ones made later",
     );
 
+    let main = create_sub_tenant(&mut connection, organization, "Main").await;
     let atlas = create_sub_tenant(&mut connection, organization, "Atlas").await;
 
     // ---------------------------------------------------------------------
@@ -346,7 +358,8 @@ async fn sub_tenant_access_resolves_across_every_tier() {
     );
 
     // The founder is equally shut out of the stranger's own organization.
-    let (_organization, stranger_main, _team) = bootstrapped(&mut connection, stranger_id).await;
+    let (stranger_organization, _team) = bootstrapped(&mut connection, stranger_id).await;
+    let stranger_main = create_sub_tenant(&mut connection, stranger_organization, "Theirs").await;
     let (status, _headers, _body) = send(
         &router,
         "GET",
@@ -372,20 +385,24 @@ async fn sub_tenant_access_resolves_across_every_tier() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
-    // The schema itself refuses a team scoped across organizations, so the
-    // resolver's filter is a second lock rather than the only one.
-    let across_tenants = diesel::insert_into(teams::table)
-        .values((
-            teams::organization_id.eq(organization),
-            teams::name.eq("Trespasser"),
-            teams::sub_tenant_id.eq(Some(stranger_main)),
-        ))
-        .execute(&mut connection)
-        .await;
-    assert!(
-        across_tenants.is_err(),
-        "a team cannot be scoped to another organization's sub-tenant",
-    );
+    // The schema itself refuses a grant that spans two organizations, so the
+    // resolver's filter is a second lock rather than the only one. Both
+    // composite foreign keys read the row's own `organization_id`, so whichever
+    // one it is made to agree with, the other refuses it.
+    for owner in [organization, stranger_organization] {
+        let across_tenants = diesel::insert_into(team_sub_tenants::table)
+            .values((
+                team_sub_tenants::team_id.eq(general),
+                team_sub_tenants::sub_tenant_id.eq(stranger_main),
+                team_sub_tenants::organization_id.eq(owner),
+            ))
+            .execute(&mut connection)
+            .await;
+        assert!(
+            across_tenants.is_err(),
+            "a team cannot be granted another organization's sub-tenant",
+        );
+    }
 
     // ---------------------------------------------------------------------
     // A guest reaches only what they were granted by name.
@@ -433,8 +450,8 @@ async fn sub_tenant_access_resolves_across_every_tier() {
     );
 
     // ---------------------------------------------------------------------
-    // An organization-level team is inherited by every sub-tenant, and a
-    // scoped team never leaves its own.
+    // An organization-scoped team reaches every sub-tenant, and an explicit
+    // one reaches exactly what it was granted.
     // ---------------------------------------------------------------------
     join_team(&mut connection, general, teammate_id, &["editor"]).await;
     for (target, name) in [(main, "Main"), (atlas, "Atlas")] {
@@ -456,8 +473,17 @@ async fn sub_tenant_access_resolves_across_every_tier() {
         );
     }
 
-    let atlas_crew = create_team(&mut connection, organization, "Atlas Crew", Some(atlas)).await;
+    let atlas_crew = create_team(&mut connection, organization, "Atlas Crew", "explicit").await;
     join_team(&mut connection, atlas_crew, crew_id, &["editor"]).await;
+    let (status, _headers, _body) =
+        send(&router, "GET", &sub_tenant_path(atlas), None, Some(&crew)).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "an explicit team starts out reaching nothing, so the grant is what admits it",
+    );
+
+    grant_sub_tenant(&mut connection, organization, atlas_crew, atlas).await;
     let (status, _headers, body) =
         send(&router, "GET", &sub_tenant_path(atlas), None, Some(&crew)).await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
@@ -467,8 +493,17 @@ async fn sub_tenant_access_resolves_across_every_tier() {
     assert_eq!(
         status,
         StatusCode::NOT_FOUND,
-        "a team scoped to one sub-tenant never leaks to another",
+        "a team granted one sub-tenant never leaks into another",
     );
+
+    // Two grants are two reaches: the relationship is many-to-many, which is
+    // the whole reason it is a table rather than a column.
+    grant_sub_tenant(&mut connection, organization, atlas_crew, main).await;
+    for target in [main, atlas] {
+        let (status, _headers, body) =
+            send(&router, "GET", &sub_tenant_path(target), None, Some(&crew)).await;
+        assert_eq!(status, StatusCode::OK, "body: {body}");
+    }
 
     // ---------------------------------------------------------------------
     // Somebody standing at three tiers holds the union of all three.
@@ -554,22 +589,31 @@ async fn sub_tenant_access_resolves_across_every_tier() {
         "an organization suspension closes every team in the organization",
     );
 
-    // A sub-tenant suspension closes the teams scoped to that sub-tenant, and
-    // nothing else.
+    // A sub-tenant suspension closes that sub-tenant and leaves the team
+    // alone. The two tiers are orthogonal: cutting somebody out of a project
+    // says nothing about the group of people they belong to, whose own work
+    // is not in that project.
     join_sub_tenant(&mut connection, atlas, crew_id, &[], true).await;
     let (status, _headers, _body) =
-        send(&router, "GET", &team_path(atlas_crew), None, Some(&crew)).await;
+        send(&router, "GET", &sub_tenant_path(atlas), None, Some(&crew)).await;
     assert_eq!(
         status,
         StatusCode::NOT_FOUND,
-        "a sub-tenant suspension closes the teams scoped to it",
+        "a sub-tenant suspension closes the sub-tenant it names",
+    );
+    let (status, _headers, body) =
+        send(&router, "GET", &team_path(atlas_crew), None, Some(&crew)).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "and leaves the team, which is a different tier: {body}",
     );
     let (status, _headers, body) =
         send(&router, "GET", &team_path(general), None, Some(&founder)).await;
     assert_eq!(
         status,
         StatusCode::OK,
-        "an organization-level team is untouched by it: {body}",
+        "as it leaves every other team too: {body}",
     );
 
     // Even the administrator is cut, because a deny an admin bit ignores is

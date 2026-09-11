@@ -15,7 +15,7 @@ use crate::schema::{
 };
 use crate::tenancy::model::{
     NewOrganization, NewOrganizationMembership, NewSubTenant, NewTeam, NewTeamMembership,
-    Organization, SubTenant, Team,
+    Organization, SubTenant, SubTenantScope, Team,
 };
 
 /// Role key granted to the creator of an organization or team.
@@ -33,13 +33,6 @@ pub(crate) const DEFAULT_ROLE: &str = "default";
 
 /// Name of the team every new organization starts with.
 const DEFAULT_TEAM_NAME: &str = "General";
-
-/// Name of the sub-tenant every new organization starts with.
-///
-/// The tier is invisible to an application that never surfaces it, so this
-/// name is only ever read by one that does, where "Main" is what a first
-/// project is usually called before somebody renames it.
-const DEFAULT_SUB_TENANT_NAME: &str = "Main";
 
 /// Returns `true` when the held role keys include [`ADMIN_ROLE`].
 pub(crate) fn holds_admin(roles: &[String]) -> bool {
@@ -61,17 +54,16 @@ pub(crate) async fn create_personal_organization(
     create_organization(connection, user.id, name).await
 }
 
-/// Creates an organization with its default sub-tenant and team.
+/// Creates an organization with its default team.
 ///
 /// The personal organization at signup and an organization created later are
 /// the same thing; nothing marks one as special. Run it in a transaction so an
 /// organization without its team, or without its admin, can never exist.
 ///
-/// The default sub-tenant is what keeps the tier optional: an application that
-/// never surfaces it still has a complete ownership chain to point at, and one
-/// that does starts with a project rather than an empty organization. The
-/// default team is left organization-level, so it is inherited by every
-/// sub-tenant created later, which is the reach a team has today.
+/// No sub-tenant is created. The tier is optional, and a resource belonging to
+/// no project belongs to the organization, so a project nobody asked for would
+/// be a row that shows up in every picker and means nothing. The default team
+/// is organization-scoped, so it reaches every project created later.
 pub(crate) async fn create_organization(
     connection: &mut AsyncPgConnection,
     owner: Uuid,
@@ -94,9 +86,14 @@ pub(crate) async fn create_organization(
         .execute(connection)
         .await?;
 
-    create_sub_tenant(connection, organization.id, DEFAULT_SUB_TENANT_NAME).await?;
-
-    let team = create_team(connection, organization.id, DEFAULT_TEAM_NAME, None, owner).await?;
+    let team = create_team(
+        connection,
+        organization.id,
+        DEFAULT_TEAM_NAME,
+        SubTenantScope::Organization,
+        owner,
+    )
+    .await?;
 
     Ok((organization, team))
 }
@@ -124,13 +121,14 @@ pub(crate) async fn create_sub_tenant(
 
 /// Creates a team in an organization, with `owner` as its admin member.
 ///
-/// `sub_tenant` scopes the team to one sub-tenant; `None` leaves it
-/// organization-level, which every sub-tenant inherits.
+/// `scope` decides which of the organization's sub-tenants the team reaches;
+/// an [`Explicit`](SubTenantScope::Explicit) team starts out reaching none,
+/// and is granted them one at a time afterwards.
 pub(crate) async fn create_team(
     connection: &mut AsyncPgConnection,
     organization_id: Uuid,
     name: &str,
-    sub_tenant: Option<Uuid>,
+    scope: SubTenantScope,
     owner: Uuid,
 ) -> Result<Team, diesel::result::Error> {
     let admin_roles = vec![ADMIN_ROLE.to_owned()];
@@ -139,7 +137,7 @@ pub(crate) async fn create_team(
         .values(NewTeam {
             organization_id,
             name,
-            sub_tenant_id: sub_tenant,
+            sub_tenant_scope: scope,
         })
         .returning(Team::as_returning())
         .get_result(connection)

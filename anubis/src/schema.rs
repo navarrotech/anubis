@@ -64,8 +64,8 @@ diesel::table! {
 }
 
 diesel::table! {
-    /// The tier between an organization and its teams: owns the work, its own
-    /// membership, and its own teams. Every organization has at least one.
+    /// A container the work lives in: what GCP and Jira call a project.
+    /// Optional, and orthogonal to teams, which carry the permissions.
     sub_tenants (id) {
         id -> Uuid,
         organization_id -> Uuid,
@@ -91,17 +91,34 @@ diesel::table! {
 }
 
 diesel::table! {
-    /// Working tenants. All domain resources chain ownership back to a team.
+    /// Groups of people carrying role keys, and the tenant a resource owned by
+    /// no sub-tenant chains back to.
     ///
-    /// `sub_tenant_id` is null for an organization-level team, which every
-    /// sub-tenant inherits; a set value scopes the team to one sub-tenant.
+    /// `sub_tenant_scope` says which sub-tenants the team reaches:
+    /// `organization` reaches every one in the organization, and `explicit`
+    /// reaches the ones named in `team_sub_tenants`.
     teams (id) {
         id -> Uuid,
         organization_id -> Uuid,
         name -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-        sub_tenant_id -> Nullable<Uuid>,
+        sub_tenant_scope -> Text,
+    }
+}
+
+diesel::table! {
+    /// Grants one team reach into one sub-tenant.
+    ///
+    /// Read only for a team whose `sub_tenant_scope` is `explicit`; an
+    /// organization-scoped team reaches every sub-tenant without a row here.
+    team_sub_tenants (id) {
+        id -> Uuid,
+        team_id -> Uuid,
+        sub_tenant_id -> Uuid,
+        organization_id -> Uuid,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -426,6 +443,8 @@ diesel::joinable!(user_tokens -> users (user_id));
 diesel::joinable!(teams -> organizations (organization_id));
 diesel::joinable!(sub_tenants -> organizations (organization_id));
 diesel::joinable!(sub_tenant_memberships -> sub_tenants (sub_tenant_id));
+diesel::joinable!(team_sub_tenants -> sub_tenants (sub_tenant_id));
+diesel::joinable!(team_sub_tenants -> teams (team_id));
 diesel::joinable!(sub_tenant_memberships -> users (user_id));
 diesel::joinable!(organization_memberships -> organizations (organization_id));
 diesel::joinable!(organization_memberships -> users (user_id));
@@ -440,6 +459,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     teams,
     organization_memberships,
     sub_tenant_memberships,
+    team_sub_tenants,
     team_memberships,
     invitations,
     users,

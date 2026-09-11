@@ -52,7 +52,7 @@ use crate::db::DbPool;
 use crate::http::ApiError;
 use crate::roles::{Action, RoleSet};
 use crate::schema::{
-    organization_memberships, organizations, sub_tenant_memberships, team_memberships, teams,
+    organization_memberships, organizations, team_memberships, teams,
 };
 use crate::tenancy::{
     Organization, OrganizationMembership, SubTenant, SubTenantAccess, Team, TeamMembership,
@@ -127,26 +127,20 @@ where
                     .eq(teams::id)
                     .and(team_memberships::user_id.eq(user.id))),
             )
-            // A suspension is a deny, so it closes the team route too: the
-            // organization's cuts every team in it, and a sub-tenant's cuts
-            // the teams scoped to that sub-tenant. Both joins are left joins
-            // filtered on a null timestamp, so a member with no membership at
-            // the tier above passes exactly as they did before the tier
-            // existed.
+            // A suspension is a deny, so an organization's closes the team
+            // route too: it cuts the member out of the organization, and the
+            // team is in it. A sub-tenant suspension does not, because the two
+            // tiers are orthogonal: it cuts the member out of that project's
+            // work, which is not what a team owns. The join is a left join
+            // filtered on a null timestamp, so a team-only member with no
+            // organization membership passes.
             .left_join(
                 organization_memberships::table.on(organization_memberships::organization_id
                     .eq(teams::organization_id)
                     .and(organization_memberships::user_id.eq(user.id))),
             )
-            .left_join(
-                sub_tenant_memberships::table.on(sub_tenant_memberships::sub_tenant_id
-                    .nullable()
-                    .eq(teams::sub_tenant_id)
-                    .and(sub_tenant_memberships::user_id.eq(user.id))),
-            )
             .filter(teams::id.eq(team_id))
             .filter(organization_memberships::suspended_at.is_null())
-            .filter(sub_tenant_memberships::suspended_at.is_null())
             .select((Team::as_select(), TeamMembership::as_select()))
             .first(&mut connection)
             .await
