@@ -463,6 +463,10 @@ pub(crate) struct NewTeam<'a> {
 
 #[derive(Insertable)]
 #[diesel(table_name = team_sub_tenants)]
+#[expect(
+    clippy::struct_field_names,
+    reason = "the fields are the table's columns, and a join row is all keys"
+)]
 pub(crate) struct NewTeamSubTenant {
     pub team_id: Uuid,
     pub sub_tenant_id: Uuid,

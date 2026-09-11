@@ -51,9 +51,7 @@ use crate::auth::{CurrentUser, User};
 use crate::db::DbPool;
 use crate::http::ApiError;
 use crate::roles::{Action, RoleSet};
-use crate::schema::{
-    organization_memberships, organizations, team_memberships, teams,
-};
+use crate::schema::{organization_memberships, organizations, team_memberships, teams};
 use crate::tenancy::{
     Organization, OrganizationMembership, SubTenant, SubTenantAccess, Team, TeamMembership,
     resolve_sub_tenant_access,

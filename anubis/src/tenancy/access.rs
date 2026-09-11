@@ -171,6 +171,94 @@ pub async fn resolve_sub_tenant_access(
     Ok(grant(organization_membership, membership, team_roles).map(|access| (sub_tenant, access)))
 }
 
+/// Lists the organization's sub-tenants the caller reaches, with their roles.
+///
+/// The rules are [`resolve_sub_tenant_access`]'s, applied by the same
+/// [`grant`] function rather than restated: a listing that admitted one more
+/// sub-tenant than the guard does would be a leak, and one that admitted one
+/// fewer would be a screen the user cannot explain. The grants are gathered
+/// once for the whole organization instead of once per sub-tenant, so the cost
+/// is three queries however many projects there are.
+///
+/// Results are ordered by name, which is the order a picker wants.
+///
+/// # Errors
+/// Returns the underlying Diesel error when a query fails.
+pub async fn list_reachable_sub_tenants(
+    connection: &mut AsyncPgConnection,
+    user_id: Uuid,
+    organization_id: Uuid,
+) -> QueryResult<Vec<(SubTenant, SubTenantAccess)>> {
+    let all: Vec<SubTenant> = sub_tenants::table
+        .filter(sub_tenants::organization_id.eq(organization_id))
+        .order(sub_tenants::name.asc())
+        .select(SubTenant::as_select())
+        .load(connection)
+        .await?;
+    if all.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let organization_membership: Option<OrganizationMembership> = organization_memberships::table
+        .filter(organization_memberships::organization_id.eq(organization_id))
+        .filter(organization_memberships::user_id.eq(user_id))
+        .select(OrganizationMembership::as_select())
+        .first(connection)
+        .await
+        .optional()?;
+
+    let memberships: Vec<SubTenantMembership> = sub_tenant_memberships::table
+        .inner_join(sub_tenants::table)
+        .filter(sub_tenants::organization_id.eq(organization_id))
+        .filter(sub_tenant_memberships::user_id.eq(user_id))
+        .select(SubTenantMembership::as_select())
+        .load(connection)
+        .await?;
+
+    // Every team of the caller's in this organization, with the sub-tenant it
+    // was granted, or `None` for an organization-scoped team whose roles apply
+    // to all of them.
+    let team_reach: Vec<(Option<Uuid>, Vec<String>)> = team_memberships::table
+        .inner_join(teams::table)
+        .left_join(team_sub_tenants::table.on(team_sub_tenants::team_id.eq(teams::id)))
+        .filter(teams::organization_id.eq(organization_id))
+        .filter(team_memberships::user_id.eq(user_id))
+        .filter(
+            teams::sub_tenant_scope
+                .eq(SubTenantScope::Organization)
+                .or(team_sub_tenants::id.is_not_null()),
+        )
+        .select((
+            team_sub_tenants::sub_tenant_id.nullable(),
+            team_memberships::roles,
+        ))
+        .load(connection)
+        .await?;
+
+    let mut reachable = Vec::new();
+    for sub_tenant in all {
+        let mut team_roles = Vec::new();
+        for (granted, roles) in &team_reach {
+            // An organization-scoped team carries no grant row, so its roles
+            // apply to every sub-tenant; a granted one applies to its own.
+            if granted.is_none_or(|target| target == sub_tenant.id) {
+                team_roles.push(roles.clone());
+            }
+        }
+
+        let membership = memberships
+            .iter()
+            .find(|held| held.sub_tenant_id == sub_tenant.id)
+            .cloned();
+
+        if let Some(access) = grant(organization_membership.clone(), membership, team_roles) {
+            reachable.push((sub_tenant, access));
+        }
+    }
+
+    Ok(reachable)
+}
+
 /// Applies the module's rules to the grants a caller holds.
 ///
 /// Split out from the query so the rules are testable without a database, and

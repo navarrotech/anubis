@@ -11,6 +11,11 @@
 //! | `DELETE /organizations/{organization_id}` | org admin | Delete the organization and everything under it |
 //! | `POST /organizations/{organization_id}/teams` | org admin | Create a team, with the creator as its admin |
 //! | `DELETE /organizations/{organization_id}/teams/{team_id}` | org admin | Delete a team and its records |
+//! | `PUT /organizations/{organization_id}/teams/{team_id}/sub-tenants` | org admin | Replace which sub-tenants the team reaches |
+//! | `GET /organizations/{organization_id}/sub-tenants` | org member | The sub-tenants the caller reaches |
+//! | `POST /organizations/{organization_id}/sub-tenants` | org admin | Create a sub-tenant |
+//! | `PATCH /organizations/{organization_id}/sub-tenants/{sub_tenant_id}` | org admin | Rename a sub-tenant |
+//! | `DELETE /organizations/{organization_id}/sub-tenants/{sub_tenant_id}` | org admin | Delete a sub-tenant and its records |
 //! | `DELETE /organizations/{organization_id}/members/{membership_id}` | org admin | Remove an organization member |
 //! | `POST /organizations/{organization_id}/leave` | org member | Leave the organization |
 //! | `DELETE /organizations/{organization_id}/invitations/{invitation_id}` | org admin | Revoke any pending invitation in the organization |
@@ -42,7 +47,7 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{delete, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use diesel::prelude::*;
 use diesel::result::DatabaseErrorKind;
@@ -55,11 +60,14 @@ use crate::auth::CurrentUser;
 use crate::guard::{OrganizationMember, TeamMember};
 use crate::http::ApiError;
 use crate::schema::{
-    invitations, organization_memberships, organizations, team_memberships, teams, users,
+    invitations, organization_memberships, organizations, sub_tenants, team_memberships,
+    team_sub_tenants, teams, users,
 };
+use crate::tenancy::access::list_reachable_sub_tenants;
 use crate::tenancy::bootstrap::{self, ADMIN_ROLE, holds_admin};
 use crate::tenancy::model::{
-    Organization, OrganizationMembership, SubTenantScope, Team, TeamMembership,
+    NewTeamSubTenant, Organization, OrganizationMembership, SubTenant, SubTenantScope, Team,
+    TeamMembership,
 };
 use crate::tenancy::routes::{TenancyState, log_internal, normalize_roles};
 
@@ -78,6 +86,18 @@ pub(super) fn routes() -> Router<TenancyState> {
         .route(
             "/organizations/{organization_id}/teams/{team_id}",
             delete(delete_team),
+        )
+        .route(
+            "/organizations/{organization_id}/teams/{team_id}/sub-tenants",
+            put(replace_team_reach),
+        )
+        .route(
+            "/organizations/{organization_id}/sub-tenants",
+            get(list_sub_tenants).post(create_sub_tenant),
+        )
+        .route(
+            "/organizations/{organization_id}/sub-tenants/{sub_tenant_id}",
+            patch(rename_sub_tenant).delete(delete_sub_tenant),
         )
         .route(
             "/organizations/{organization_id}/members/{membership_id}",
@@ -129,6 +149,47 @@ struct CreatedOrganizationBody {
 #[derive(Serialize)]
 struct TeamBody {
     team: Team,
+}
+
+#[derive(Serialize)]
+struct SubTenantBody {
+    sub_tenant: SubTenant,
+}
+
+/// One sub-tenant as the caller reaches it.
+#[derive(Serialize)]
+struct ReachableSubTenant {
+    #[serde(flatten)]
+    sub_tenant: SubTenant,
+    /// Every role key the caller holds here, so a screen can draw its
+    /// affordances without asking a second time.
+    roles: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct SubTenantsBody {
+    sub_tenants: Vec<ReachableSubTenant>,
+}
+
+/// Which sub-tenants a team reaches, stated whole.
+///
+/// `sub_tenant_ids` is read only for [`SubTenantScope::Explicit`]; an
+/// organization-scoped team reaches every sub-tenant by definition, so a list
+/// beside that scope would be a second answer to a settled question. Sending
+/// one anyway is a `400` rather than a silent discard.
+#[derive(Deserialize)]
+struct ReachBody {
+    scope: SubTenantScope,
+    #[serde(default)]
+    sub_tenant_ids: Vec<Uuid>,
+}
+
+#[derive(Serialize)]
+struct TeamReachBody {
+    team: Team,
+    /// The sub-tenants the team now reaches by name, empty for an
+    /// organization-scoped team, which reaches all of them.
+    sub_tenant_ids: Vec<Uuid>,
 }
 
 #[derive(Serialize)]
@@ -467,6 +528,289 @@ async fn leave_organization(
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Lists the organization's sub-tenants the caller can reach.
+///
+/// Open to any member, because the answer is already filtered to what they
+/// reach: an administrator sees every project and a guest sees the one they
+/// were granted, and neither learns anything about the other's.
+async fn list_sub_tenants(
+    State(state): State<TenancyState>,
+    member: OrganizationMember,
+) -> Result<impl IntoResponse, ApiError> {
+    let mut connection = state.pool.get().await.map_err(log_internal)?;
+    let reachable =
+        list_reachable_sub_tenants(&mut connection, member.user.id, member.organization.id)
+            .await
+            .map_err(log_internal)?;
+
+    let sub_tenants = reachable
+        .into_iter()
+        .map(|(sub_tenant, access)| ReachableSubTenant {
+            sub_tenant,
+            roles: access.roles,
+        })
+        .collect();
+
+    Ok(Json(SubTenantsBody { sub_tenants }))
+}
+
+/// Creates a sub-tenant in the organization.
+///
+/// Nobody is enrolled in it: an administrator bypasses the tier, a full member
+/// cascades into it, and every organization-scoped team already reaches it, so
+/// a membership row here would restate a fact the resolver reads anyway.
+/// Guests are enrolled by name afterwards, which is a deliberate act.
+async fn create_sub_tenant(
+    State(state): State<TenancyState>,
+    member: OrganizationMember,
+    context: audit::Context,
+    Json(body): Json<NameBody>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_organization_admin(&member)?;
+    let name = validate_name(&body.name, "project")?;
+
+    let mut connection = state.pool.get().await.map_err(log_internal)?;
+    let sub_tenant = connection
+        .transaction::<SubTenant, diesel::result::Error, _>(async |transaction| {
+            let sub_tenant =
+                bootstrap::create_sub_tenant(transaction, member.organization.id, &name).await?;
+
+            audit::record(
+                transaction,
+                &context.by(&member.user),
+                &audit::Event::new(audit::SUB_TENANT_CREATED, "SubTenant")
+                    .organization(member.organization.id)
+                    .subject(sub_tenant.id)
+                    .label(&sub_tenant.name),
+            )
+            .await?;
+
+            Ok(sub_tenant)
+        })
+        .await
+        .map_err(log_internal)?;
+
+    Ok((StatusCode::CREATED, Json(SubTenantBody { sub_tenant })))
+}
+
+/// Renames a sub-tenant.
+///
+/// The guard is the organization's admin rather than the sub-tenant's own
+/// reach, because naming a project is administering the organization's
+/// structure: everyone who reaches it reads the name, and only one tier owns
+/// what the structure is called.
+async fn rename_sub_tenant(
+    State(state): State<TenancyState>,
+    member: OrganizationMember,
+    context: audit::Context,
+    Path((_organization_id, sub_tenant_id)): Path<(Uuid, Uuid)>,
+    Json(body): Json<NameBody>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_organization_admin(&member)?;
+    let name = validate_name(&body.name, "project")?;
+
+    let mut connection = state.pool.get().await.map_err(log_internal)?;
+    let sub_tenant = connection
+        .transaction::<SubTenant, ApiError, _>(async |transaction| {
+            // Filtering on the organization is what makes another tenant's id
+            // a `404` here rather than a rename nobody asked for. The refusal
+            // rides the transaction, so it leaves nothing behind.
+            let previous: Option<SubTenant> = sub_tenants::table
+                .filter(sub_tenants::id.eq(sub_tenant_id))
+                .filter(sub_tenants::organization_id.eq(member.organization.id))
+                .select(SubTenant::as_select())
+                .first(transaction)
+                .await
+                .optional()?;
+            let Some(previous) = previous else {
+                return Err(ApiError::not_found());
+            };
+
+            let sub_tenant: SubTenant = diesel::update(sub_tenants::table.find(sub_tenant_id))
+                .set(sub_tenants::name.eq(&name))
+                .returning(SubTenant::as_returning())
+                .get_result(transaction)
+                .await?;
+
+            audit::record(
+                transaction,
+                &context.by(&member.user),
+                &audit::Event::new(audit::SUB_TENANT_RENAMED, "SubTenant")
+                    .organization(member.organization.id)
+                    .subject(sub_tenant.id)
+                    .label(&sub_tenant.name)
+                    .changes(Changes::new().field("name", previous.name, sub_tenant.name.clone())),
+            )
+            .await?;
+
+            Ok(sub_tenant)
+        })
+        .await?;
+
+    Ok(Json(SubTenantBody { sub_tenant }))
+}
+
+/// Deletes a sub-tenant and everything that chains to it.
+///
+/// The teams that reached it are untouched: a team is a group of people, and
+/// the project closing does not dissolve the group. Their grants cascade away
+/// with the row, so an explicitly scoped team simply reaches one fewer.
+async fn delete_sub_tenant(
+    State(state): State<TenancyState>,
+    member: OrganizationMember,
+    context: audit::Context,
+    Path((_organization_id, sub_tenant_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_organization_admin(&member)?;
+
+    let mut connection = state.pool.get().await.map_err(log_internal)?;
+    // The name comes back with the delete, because the audit event has to say
+    // which project went and by then there is nothing left to ask.
+    let deleted: Option<String> = diesel::delete(
+        sub_tenants::table
+            .filter(sub_tenants::id.eq(sub_tenant_id))
+            .filter(sub_tenants::organization_id.eq(member.organization.id)),
+    )
+    .returning(sub_tenants::name)
+    .get_result(&mut connection)
+    .await
+    .optional()
+    .map_err(|error| restricted_by_records(error, "project"))?;
+
+    let Some(name) = deleted else {
+        return Err(ApiError::not_found());
+    };
+
+    audit::record(
+        &mut connection,
+        &context.by(&member.user),
+        &audit::Event::new(audit::SUB_TENANT_DESTROYED, "SubTenant")
+            .organization(member.organization.id)
+            .subject(sub_tenant_id)
+            .label(&name),
+    )
+    .await
+    .map_err(log_internal)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Replaces which sub-tenants a team reaches.
+///
+/// Stated whole rather than patched, exactly as roles are: a request says the
+/// end state, so two administrators editing one team at the same moment cannot
+/// interleave into a reach neither asked for.
+///
+/// This is an organization-level act. Teams and sub-tenants are both the
+/// organization's infrastructure, and letting a team's own admin grant it a
+/// project would let a team widen its own reach.
+async fn replace_team_reach(
+    State(state): State<TenancyState>,
+    member: OrganizationMember,
+    context: audit::Context,
+    Path((_organization_id, team_id)): Path<(Uuid, Uuid)>,
+    Json(body): Json<ReachBody>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_organization_admin(&member)?;
+
+    if body.scope == SubTenantScope::Organization && !body.sub_tenant_ids.is_empty() {
+        return Err(ApiError::validation(
+            "An organization-wide team reaches every project already, so it takes no list.",
+        ));
+    }
+
+    // A duplicate would violate the table's uniqueness on the way in, which
+    // reads as a conflict rather than what it is: a request that named the
+    // same project twice.
+    let mut targets: Vec<Uuid> = body.sub_tenant_ids;
+    targets.sort_unstable();
+    targets.dedup();
+
+    let mut connection = state.pool.get().await.map_err(log_internal)?;
+    let organization_id = member.organization.id;
+    let (team, granted) = connection
+        .transaction::<(Team, Vec<Uuid>), ApiError, _>(async |transaction| {
+            let previous: Option<Team> = teams::table
+                .filter(teams::id.eq(team_id))
+                .filter(teams::organization_id.eq(organization_id))
+                .select(Team::as_select())
+                .first(transaction)
+                .await
+                .optional()?;
+            let Some(previous) = previous else {
+                return Err(ApiError::not_found());
+            };
+
+            // Every named project must be this organization's. Counted inside
+            // the transaction rather than before it, so a project deleted
+            // between the check and the insert is refused here instead of
+            // reaching the composite foreign key, which would answer `500`
+            // about a constraint the caller cannot act on.
+            let mine: i64 = sub_tenants::table
+                .filter(sub_tenants::organization_id.eq(organization_id))
+                .filter(sub_tenants::id.eq_any(&targets))
+                .count()
+                .get_result(transaction)
+                .await?;
+            if mine != i64::try_from(targets.len()).unwrap_or(i64::MAX) {
+                return Err(ApiError::validation(
+                    "One of those projects is not in this organization.",
+                ));
+            }
+
+            let team: Team = diesel::update(teams::table.find(team_id))
+                .set(teams::sub_tenant_scope.eq(body.scope))
+                .returning(Team::as_returning())
+                .get_result(transaction)
+                .await?;
+
+            // Cleared unconditionally, so switching a team to organization
+            // scope leaves no grants behind to reappear if it is narrowed
+            // again later.
+            diesel::delete(team_sub_tenants::table.filter(team_sub_tenants::team_id.eq(team_id)))
+                .execute(transaction)
+                .await?;
+
+            if !targets.is_empty() {
+                let rows: Vec<NewTeamSubTenant> = targets
+                    .iter()
+                    .map(|sub_tenant_id| NewTeamSubTenant {
+                        team_id,
+                        sub_tenant_id: *sub_tenant_id,
+                        organization_id,
+                    })
+                    .collect();
+                diesel::insert_into(team_sub_tenants::table)
+                    .values(&rows)
+                    .execute(transaction)
+                    .await?;
+            }
+
+            audit::record(
+                transaction,
+                &context.by(&member.user),
+                &audit::Event::new(audit::TEAM_REACH_CHANGED, "Team")
+                    .team(team.id)
+                    .subject(team.id)
+                    .label(&team.name)
+                    .changes(Changes::new().field(
+                        "sub_tenant_scope",
+                        previous.sub_tenant_scope.as_str().to_owned(),
+                        team.sub_tenant_scope.as_str().to_owned(),
+                    )),
+            )
+            .await?;
+
+            Ok((team, targets))
+        })
+        .await?;
+
+    Ok(Json(TeamReachBody {
+        team,
+        sub_tenant_ids: granted,
+    }))
 }
 
 async fn rename_team(

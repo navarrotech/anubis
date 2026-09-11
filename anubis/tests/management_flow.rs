@@ -890,3 +890,265 @@ async fn account_deletion_settles_the_organizations_left_behind() {
         .expect("the heir must inherit the organization membership");
     assert_eq!(organization_roles, vec!["admin".to_owned()]);
 }
+
+/// Projects and teams, managed over HTTP as two structures beside each other.
+///
+/// The narrative is Example #1 from the design: an organization with several
+/// teams and several projects, where a team either reaches every project or
+/// exactly the ones it was granted, and where work that belongs to no project
+/// belongs to the organization.
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one linear end-to-end narrative over shared database state"
+)]
+async fn projects_and_teams_are_managed_side_by_side() {
+    let Ok(database_url) = std::env::var("DATABASE_URL") else {
+        eprintln!("skipping management_flow test: DATABASE_URL is not set");
+        return;
+    };
+    let (router, pool, _outbox) = application(&database_url).await;
+    let mut connection = pool.get().await.expect("connection must be available");
+
+    let run = Uuid::new_v4();
+    let founder_cookie = register(&router, &format!("projects-founder-{run}@example.com")).await;
+    let outsider_cookie = register(&router, &format!("projects-outsider-{run}@example.com")).await;
+
+    let (status, _headers, body) = send(
+        &router,
+        "POST",
+        "/tenancy/organizations",
+        Some(&json!({ "name": "Jalapeno Labs" })),
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "body: {body}");
+    let organization = body["organization"]["id"]
+        .as_str()
+        .and_then(|id| id.parse::<Uuid>().ok())
+        .expect("the organization must carry an id");
+    let leadership = body["team"]["id"]
+        .as_str()
+        .and_then(|id| id.parse::<Uuid>().ok())
+        .expect("the default team must carry an id");
+
+    // ------------------------------------------------------------------
+    // An organization starts with no projects, and the tier is opt-in.
+    // ------------------------------------------------------------------
+    let (status, _headers, body) = send(
+        &router,
+        "GET",
+        &format!("/tenancy/organizations/{organization}/sub-tenants"),
+        None,
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(
+        body["sub_tenants"],
+        json!([]),
+        "a new organization has no projects at all",
+    );
+
+    let mut projects = Vec::new();
+    for name in ["Game One", "Game Two"] {
+        let (status, _headers, body) = send(
+            &router,
+            "POST",
+            &format!("/tenancy/organizations/{organization}/sub-tenants"),
+            Some(&json!({ "name": name })),
+            Some(&founder_cookie),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "body: {body}");
+        assert_eq!(body["sub_tenant"]["name"], json!(name));
+        projects.push(
+            body["sub_tenant"]["id"]
+                .as_str()
+                .and_then(|id| id.parse::<Uuid>().ok())
+                .expect("the project must carry an id"),
+        );
+    }
+    let (game_one, game_two) = (projects[0], projects[1]);
+
+    // The default team is organization-scoped, so it picked both projects up
+    // without anybody granting them: that is what the scope is for.
+    let (status, _headers, body) = send(
+        &router,
+        "GET",
+        &format!("/tenancy/organizations/{organization}/sub-tenants"),
+        None,
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let listed: Vec<&str> = body["sub_tenants"]
+        .as_array()
+        .expect("sub_tenants must be an array")
+        .iter()
+        .map(|entry| entry["name"].as_str().expect("each must carry a name"))
+        .collect();
+    assert_eq!(
+        listed,
+        vec!["Game One", "Game Two"],
+        "the listing is ordered by name, which is the order a picker wants",
+    );
+
+    // ------------------------------------------------------------------
+    // A team is narrowed to the projects it works on, stated whole.
+    // ------------------------------------------------------------------
+    let (status, _headers, body) = send(
+        &router,
+        "POST",
+        &format!("/tenancy/organizations/{organization}/teams"),
+        Some(&json!({ "name": "Marketing" })),
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "body: {body}");
+    let marketing = body["team"]["id"]
+        .as_str()
+        .and_then(|id| id.parse::<Uuid>().ok())
+        .expect("the team must carry an id");
+    assert_eq!(
+        body["team"]["sub_tenant_scope"],
+        json!("organization"),
+        "a team is born reaching everything; narrowing it is a deliberate act",
+    );
+
+    let reach_url = format!("/tenancy/organizations/{organization}/teams/{marketing}/sub-tenants");
+    let (status, _headers, body) = send(
+        &router,
+        "PUT",
+        &reach_url,
+        Some(&json!({ "scope": "explicit", "sub_tenant_ids": [game_one] })),
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["team"]["sub_tenant_scope"], json!("explicit"));
+    assert_eq!(body["sub_tenant_ids"], json!([game_one]));
+
+    // A team may reach several projects, which is the whole reason the
+    // relationship is a table rather than a column.
+    let (status, _headers, body) = send(
+        &router,
+        "PUT",
+        &reach_url,
+        Some(&json!({ "scope": "explicit", "sub_tenant_ids": [game_one, game_two, game_one] })),
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let granted = body["sub_tenant_ids"]
+        .as_array()
+        .expect("sub_tenant_ids must be an array");
+    assert_eq!(
+        granted.len(),
+        2,
+        "a project named twice is granted once: {body}",
+    );
+
+    // ------------------------------------------------------------------
+    // The refusals.
+    // ------------------------------------------------------------------
+    let (status, _headers, body) = send(
+        &router,
+        "PUT",
+        &reach_url,
+        Some(&json!({ "scope": "organization", "sub_tenant_ids": [game_one] })),
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "an organization-wide team takes no list of projects: {body}",
+    );
+
+    let (status, _headers, body) = send(
+        &router,
+        "PUT",
+        &reach_url,
+        Some(&json!({ "scope": "explicit", "sub_tenant_ids": [Uuid::new_v4()] })),
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "a project outside the organization is refused by name: {body}",
+    );
+
+    for (method, path, payload) in [
+        (
+            "POST",
+            format!("/tenancy/organizations/{organization}/sub-tenants"),
+            json!({ "name": "Trespass" }),
+        ),
+        ("PUT", reach_url.clone(), json!({ "scope": "organization" })),
+    ] {
+        let (status, _headers, body) = send(
+            &router,
+            method,
+            &path,
+            Some(&payload),
+            Some(&outsider_cookie),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "a non-member cannot tell this organization from one that does not exist: {body}",
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Renaming and deleting a project, and what survives it.
+    // ------------------------------------------------------------------
+    let project_url = format!("/tenancy/organizations/{organization}/sub-tenants/{game_two}");
+    let (status, _headers, body) = send(
+        &router,
+        "PATCH",
+        &project_url,
+        Some(&json!({ "name": "Game Two: Reloaded" })),
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["sub_tenant"]["name"], json!("Game Two: Reloaded"));
+
+    let (status, _headers, _body) =
+        send(&router, "DELETE", &project_url, None, Some(&founder_cookie)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    // The team that reached it is untouched, and simply reaches one fewer: a
+    // project closing does not dissolve the group of people who worked on it.
+    let surviving_teams: i64 = teams::table
+        .filter(teams::id.eq_any([leadership, marketing]))
+        .count()
+        .get_result(&mut connection)
+        .await
+        .expect("count must run");
+    assert_eq!(surviving_teams, 2, "deleting a project keeps every team");
+
+    let (status, _headers, body) = send(
+        &router,
+        "GET",
+        &format!("/tenancy/organizations/{organization}/sub-tenants"),
+        None,
+        Some(&founder_cookie),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(
+        body["sub_tenants"].as_array().map(Vec::len),
+        Some(1),
+        "one project went, one remains: {body}",
+    );
+
+    // A second delete of the same id is a `404`, not a second success.
+    let (status, _headers, _body) =
+        send(&router, "DELETE", &project_url, None, Some(&founder_cookie)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

@@ -93,6 +93,14 @@ pub const ORGANIZATION_CREATED: &str = "organization.created";
 pub const ORGANIZATION_RENAMED: &str = "organization.renamed";
 /// An organization was deleted, taking its teams with it.
 pub const ORGANIZATION_DESTROYED: &str = "organization.destroyed";
+/// A sub-tenant was created inside its organization.
+pub const SUB_TENANT_CREATED: &str = "sub_tenant.created";
+/// A sub-tenant was renamed.
+pub const SUB_TENANT_RENAMED: &str = "sub_tenant.renamed";
+/// A sub-tenant was deleted, taking its records with it.
+pub const SUB_TENANT_DESTROYED: &str = "sub_tenant.destroyed";
+/// A team's reach across its organization's sub-tenants was replaced.
+pub const TEAM_REACH_CHANGED: &str = "team.reach_changed";
 /// Somebody joined a tenant by claiming their invitation.
 pub const MEMBER_ADDED: &str = "member.added";
 /// A member's roles were replaced with a new set.
